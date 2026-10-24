@@ -27,7 +27,7 @@ final class Migration{
                 $seen[$key] = $id;
                 $m += ['name'=>(string)$key,'role'=>'member','kills'=>0,'deaths'=>0,'joinedAt'=>time()];
                 if(!isset($c['roles'][$m['role']])) $m['role']='member';
-                if($key === ($c['leader'] ?? '')) $m['role']='leader';
+                if($key === ($c['leader'] ?? '')) $m['role']='leader';elseif($m['role']==='leader')$m['role']='member';
             }unset($m);
             if(!isset($c['members'][$c['leader'] ?? ''])) throw new \RuntimeException('У клана ' . $id . ' отсутствует лидер. Данные не изменены.');
             $oldRating=max(0,(int)($c['kills']??0)*(int)($config['rating']['kill-weight']??10)-(int)($c['deaths']??0)*(int)($config['rating']['death-weight']??3)+count($c['members'])*(int)($config['rating']['member-weight']??5));
@@ -36,6 +36,7 @@ final class Migration{
             foreach($c['members'] as $key=>$m) $c['joinSeen']['name:'.$key]=true;
             if($legacy){
                 foreach($c['channels'] as &$channel) $channel['priority']=max(1,min(10,(int)ceil((int)($channel['priority']??0)/10))); unset($channel);
+                $c['legacyStorage']=(array)$c['storage'];
                 $homes = (array)($c['homes'] ?? []);
                 $c['home'] = $homes === [] ? null : reset($homes);
                 $c['legacyHomes'] = $homes;

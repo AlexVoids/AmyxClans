@@ -37,6 +37,16 @@ trait AdminMenus{
             if(mb_strlen(trim($d[0]))<1 || mb_strlen($d[0])>32)throw new \DomainException('Название: 1–32 символа.');
             $change(function(array &$a)use($d):void{$a['name']=trim($d[0]);$a['modes']=array_values(array_filter([$d[1]?'arena':null,$d[2]?'siege':null]));$a['maximum']=[3,5,10,15][$d[3]];});
         },fn()=> $this->arenaEditor($p,$id),true)];
+        $buttons[]=['Привязать регион защитника',function()use($p,$change):void{
+            $ids=[];$labels=[];
+            foreach($this->p->db->clans as $cid=>$clan)foreach($clan['regions'] as $rid=>$region){$ids[]=['clan'=>$cid,'id'=>$rid];$labels[]=$clan['name'].' / '.$region['name'];}
+            if($ids===[])throw new \DomainException('Клановых регионов нет.');
+            $this->custom($p,'Осада территории',[['label','Границы станут равны всему региону, включая полную высоту. Затем заново настройте старты, стену и сундуки.'],['dropdown','Регион',$labels]],function($d)use($change,$ids):void{
+                $binding=$ids[$d[1]];$region=$this->p->db->clans[$binding['clan']]['regions'][$binding['id']]??null;if($region===null)throw new \DomainException('Регион удалён.');$world=$this->p->arenas->world($region['world']);if($world===null)throw new \DomainException('Мир недоступен.');
+                $change(function(array &$a)use($binding,$region,$world):void{$a['region']=$binding;$a['modes']=['siege'];$a['bounds']=array_intersect_key($region,array_flip(['world','minX','maxX','minZ','maxZ']))+['minY'=>$world->getMinY(),'maxY'=>$world->getMaxY()-1];unset($a['wall']);$a['spawns']=['a'=>[],'b'=>[]];});
+            },null,true);
+        }];
+        if(isset($a['region']))$buttons[]=['Отвязать регион',fn()=> $change(function(array &$a):void{unset($a['region']);})];
         $buttons[]=['Проверить готовность',function()use($p,$id):void{
             if(!$this->p->isOperator($p))throw new \DomainException('Только OP.');$a=$this->p->arenas->get($id);$lines=[];
             foreach($a['modes'] as $mode)foreach([3,5,10,15] as $n){try{$this->p->arenas->validate($a,$mode,$n);$lines[]=$mode.' '.$n.'×'.$n.': готова';}catch(\DomainException $e){$lines[]=$mode.' '.$n.'×'.$n.': '.$e->getMessage();}}

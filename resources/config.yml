@@ -124,6 +124,7 @@ war:
   minimum-regions: 4
   team-sizes: [3, 5, 10, 15]
   request-seconds: 86400
+  rematch-cooldown-seconds: 1800
   collect-seconds: 600
   prepare-seconds: 300
   fight-seconds: 1800

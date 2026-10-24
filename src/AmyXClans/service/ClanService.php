@@ -145,10 +145,11 @@ final class ClanService{
     }
     public function remove(Player $actor, string $target) : void{
         $id=$this->manageTarget($actor,$target,'kick');
+        $online=$this->p->getServer()->getPlayerExact($target);if($online!==null)$this->p->closeStorage($online);
         $this->log($id,$actor->getName(),'исключил игрока §5'.$target); unset($this->p->db->clans[$id]['members'][mb_strtolower($target)]); $this->p->db->save();
     }
     public function leave(Player $actor) : void{
-        $id=$this->require($actor); $this->idle($id); $c=&$this->p->db->clans[$id]; $key=mb_strtolower($actor->getName());
+        $id=$this->require($actor); $this->idle($id); $this->p->closeStorage($actor);$c=&$this->p->db->clans[$id]; $key=mb_strtolower($actor->getName());
         if($c['leader']===$key){
             $this->p->db->runtime['deletedClans'][$id]=$c; // audit/recovery archive, including storage
             unset($this->p->db->clans[$id]);

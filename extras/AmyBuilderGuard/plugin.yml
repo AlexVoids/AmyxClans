@@ -1,0 +1,29 @@
+name: AmyBuilderGuard
+main: AmyX\BuilderGuard\Main
+version: 1.3.2
+api: 5.0.0
+author: AmyXCraft
+description: WorldEdit + WorldGuard with forms, full-height regions and schematics for PocketMine-MP 5
+
+permissions:
+  amybg.worldedit:
+    description: Legacy full WorldEdit access (existing OP installations)
+    default: op
+  amybg.worldedit.basic:
+    description: Normal WorldEdit with limited operations (15000 by default)
+    default: false
+  amybg.worldedit.advanced:
+    description: Advanced WorldEdit (global limit 200000 by default)
+    default: op
+  amybg.worldedit.shapes:
+    description: Allows /set /sphere /hsphere /cyl /hcyl /line for basic users
+    default: false
+  amybg.worldguard:
+    description: Access to player region commands and menus
+    default: true
+  amybg.region.admin:
+    description: Manage every region and server region settings
+    default: op
+  amybg.bypass:
+    description: Explicit bypass of all region protection
+    default: false

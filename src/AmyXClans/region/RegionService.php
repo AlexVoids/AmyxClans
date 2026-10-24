@@ -17,6 +17,8 @@ final class RegionService{
     }
     public function canAccess(Player $player,Position $pos) : bool{
         $at=$this->at($pos);if($at===null) return true;
+        $mid=$this->p->matches->playerMatch($player,true);
+        if($mid!==null){$m=$this->p->matches->all()[$mid];if($m['phase']==='active' && ($m['arena']['region']['clan']??null)===$at['clan'] && ($m['arena']['region']['id']??null)===$at['id'] && $this->p->matches->at($pos)===$mid)return true;}
         if($this->p->cfg('regions.op-bypass',true) && $this->p->isOperator($player)) return true;
         $role=$this->p->clan->role($at['clan'],$player->getName()); if($role===null) return false;
         $id=$this->p->getClanRoleIdByPlayer($player->getName());

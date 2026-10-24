@@ -19,7 +19,7 @@ final class Menus{
                 if($op && !$this->p->isOperator($player)) throw new \DomainException('Настройка доступна только OP.');
                 if($this->p->clan->id($player->getName())!==$clan) throw new \DomainException('Состав клана изменился. Откройте /clan снова.');
                 $fn($data);
-            }catch(\DomainException $e){$this->p->message($player,$e->getMessage());}
+            }catch(\DomainException $e){$this->p->message($player,$e->getMessage());}catch(\Throwable $e){$this->p->getLogger()->logException($e);$this->p->message($player,'Операция приостановлена из-за ошибки. Обратитесь к администрации.');}
         };
     }
     /** Each button is [label, callback]; callbacks also revalidate current permissions in services. */

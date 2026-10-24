@@ -21,7 +21,11 @@ final class Protection implements Listener{
     private function protected(Position $p) : bool{return $this->p->regions->at($p)!==null || $this->p->matches->at($p)!==null;}
     /** @priority HIGHEST */
     public function break(BlockBreakEvent $e) : void{if(!$this->p->canBuildAt($e->getPlayer(),$e->getBlock()->getPosition()))$e->cancel();
-        elseif($this->p->matches->at($e->getBlock()->getPosition())!==null){$e->setDrops([]);$e->setXpDropAmount(0);}}
+        elseif($this->p->matches->at($e->getBlock()->getPosition())!==null){
+            $pos=$e->getBlock()->getPosition();$tile=$pos->getWorld()->getTile($pos);
+            if($tile instanceof \pocketmine\block\tile\Container)$e->cancel();
+            else{$e->setDrops([]);$e->setXpDropAmount(0);}
+        }}
     /** @priority HIGHEST */
     public function place(BlockPlaceEvent $e) : void{
         foreach($e->getTransaction()->getBlocks() as [$x,$y,$z,$block])if(!$this->p->canBuildAt($e->getPlayer(),new Position($x,$y,$z,$e->getBlockAgainst()->getPosition()->getWorld()))){$e->cancel();return;}
@@ -90,16 +94,21 @@ final class Protection implements Listener{
         $p=$e->getEntity();if(!$p instanceof Player || $this->p->matches->internalTeleport)return;
         if($this->p->matches->playerMatch($p,true)!==null || $this->p->matches->at($e->getTo())!==null)$e->cancel();
     }
-    /** @priority HIGHEST */
+    /** @priority LOWEST */
     public function command(CommandEvent $e) : void{
         $p=$e->getSender();if(!$p instanceof Player || $this->p->matches->playerMatch($p,true)===null)return;
         $cmd=strtolower(explode(' ',ltrim($e->getCommand(),'/'))[0]);if(!in_array($cmd,['clan','c','clans','amyxclans:clan'],true)){$e->cancel();$this->p->message($p,'Во время битвы доступно только меню /clan.');}
     }
     /** @priority HIGHEST */
+    public function gameMode(\pocketmine\event\player\PlayerGameModeChangeEvent $e) : void{
+        $mid=$this->p->matches->playerMatch($e->getPlayer(),true);
+        if($mid!==null && in_array($this->p->matches->all()[$mid]['phase'],['collecting','preparing','active'],true) && $e->getNewGamemode()!==\pocketmine\player\GameMode::SURVIVAL())$e->cancel();
+    }
+    /** @priority HIGHEST */
     public function damage(EntityDamageEvent $e) : void{
         $v=$e->getEntity();
         if($v instanceof ItemEntity && $this->p->totems->marker($v->getItem())!==null){$e->cancel();return;}
-        if(!$v instanceof Player)return;
+        if(!$v instanceof Player){if($this->p->matches->at($v->getPosition())!==null)$e->cancel();return;}
         $mid=$this->p->matches->playerMatch($v,true);$at=$this->p->matches->at($v->getPosition());
         $attacker=$e instanceof EntityDamageByEntityEvent?$e->getDamager():null;
         if($mid!==null){
@@ -152,5 +161,5 @@ final class Protection implements Listener{
     /** @priority HIGHEST */
     public function form(BlockFormEvent $e) : void{if($this->protected($e->getBlock()->getPosition()))$e->cancel();}
     /** @priority HIGHEST */
-    public function explode(EntityExplodeEvent $e) : void{$e->setBlockList(array_values(array_filter($e->getBlockList(),fn($b)=>!$this->protected($b->getPosition()))));}
+    public function explode(EntityExplodeEvent $e) : void{$e->setBlockList(array_values(array_filter($e->getBlockList(),fn($b)=>!$this->protected($b->getPosition()))));$e->setIgnitions(array_values(array_filter($e->getIgnitions(),fn($b)=>!$this->protected($b->getPosition()))));}
 }

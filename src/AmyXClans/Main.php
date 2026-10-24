@@ -43,9 +43,10 @@ final class Main extends PluginBase implements Listener{
         if(is_resource($stream))fclose($stream);
         foreach((array)$defaults as $key=>$value) if(!$this->getConfig()->exists($key)) $this->getConfig()->set($key,$value);
         $this->getConfig()->save();
-        foreach(['texts.yml','arenas.yml','messages.yml'] as $file) if(!is_file($this->getDataFolder().$file)) $this->saveResource($file);
+        foreach(['texts.yml','arenas.yml','messages.yml','interface.yml'] as $file) if(!is_file($this->getDataFolder().$file)) $this->saveResource($file);
         $texts=new Config($this->getDataFolder().'texts.yml',Config::YAML);
-        $this->replacements=(array)$texts->get('replacements',[]);
+        $interface=new Config($this->getDataFolder().'interface.yml',Config::YAML);
+        $this->replacements=array_replace((array)$interface->get('replacements',[]),(array)$texts->get('replacements',[]));
         $this->db=new Database($this->getDataFolder());
         Migration::run($this->db,$this->getConfig()->getAll());
         $this->clans=&$this->db->clans;
@@ -82,7 +83,13 @@ final class Main extends PluginBase implements Listener{
         foreach(array_keys($this->storageSessions) as $key) $this->closeStorageSession($key,true);
         $this->db->save();
     }
-    public function cfg(string $key,mixed $default=null) : mixed{return $this->getConfig()->getNested($key,$default);}
+    private function reloadInterface() : void{
+        $texts=new Config($this->getDataFolder().'texts.yml',Config::YAML);$interface=new Config($this->getDataFolder().'interface.yml',Config::YAML);
+        $this->replacements=array_replace((array)$interface->get('replacements',[]),(array)$texts->get('replacements',[]));
+    }
+    public function cfg(string $key,mixed $default=null) : mixed{
+        $value=$this->getConfig()->getAll();foreach(explode('.',$key) as $part){if(!is_array($value) || !array_key_exists($part,$value))return $default;$value=$value[$part];}return $value;
+    }
     public function authenticated(Player $player) : bool{
         $auth=$this->getServer()->getPluginManager()->getPlugin('SimpleAuth');
         return $player->isConnected() && ($auth===null || !$auth->isEnabled() || !method_exists($auth,'isAuthenticated') || $auth->isAuthenticated($player->getName()));
@@ -97,7 +104,7 @@ final class Main extends PluginBase implements Listener{
         try{
             if($command->getName()==='clanadmin'){
                 if(!$this->isOperator($sender)) throw new \DomainException('Настройка доступна только OP.');
-                if(($args[0]??'')==='reload'){$this->reloadConfig();$this->arenas->reload();$sender->sendMessage('Настройки перезагружены.');return true;}
+                if(($args[0]??'')==='reload'){$this->reloadConfig();$this->arenas->reload();$this->reloadInterface();$sender->sendMessage('Настройки перезагружены.');return true;}
                 if(($args[0]??'')==='xp' && isset($args[1],$args[2])){
                     $id=$this->findClanId($args[1]); if($id===null) throw new \DomainException('Клан не найден.');
                     $this->clan->eventXp($id,'op:'.bin2hex(random_bytes(8)),max(0,min(10000,(int)$args[2])));return true;
@@ -106,13 +113,20 @@ final class Main extends PluginBase implements Listener{
                     $id=$this->findClanId($args[1]);if($id===null) throw new \DomainException('Клан не найден.');$this->clan->idle($id);
                     $this->db->clans[$id]['bank']=max(0,min(2_000_000_000,(int)$args[2]));$this->clan->log($id,$sender->getName(),'установил баланс казны §5'.$args[2]);$this->db->save();return true;
                 }
+                if(($args[0]??'')==='money' && isset($args[1],$args[2])){
+                    \Amyx\Economy\api\EconomyAPI::getInstance()->setBalance($args[1],max(0,(int)$args[2]),'amyxclans_admin_set',$sender->getName());return true;
+                }
+                if(($args[0]??'')==='delete' && isset($args[1])){
+                    $id=$this->findClanId($args[1]);if($id===null)throw new \DomainException('Клан не найден.');$this->clan->idle($id);
+                    $this->db->runtime['deletedClans'][$id]=$this->db->clans[$id];unset($this->db->clans[$id]);$this->matches->cancelRequests($id);$this->db->save();return true;
+                }
                 if(!$sender instanceof Player){$sender->sendMessage('/clanadmin reload | xp <id> <XP> | setbank <id> <монеты>. Арены настраиваются в игре.');return true;}
                 $this->menus->admin($sender);return true;
             }
             if(!$sender instanceof Player){$sender->sendMessage('Команда доступна в игре.');return true;}
             if(!$this->authenticated($sender)) throw new \DomainException('Сначала войдите в аккаунт.');
             $this->menus->main($sender);
-        }catch(\DomainException $e){$sender->sendMessage($this->translateText('§5'.$e->getMessage()));}
+        }catch(\DomainException $e){$sender->sendMessage($this->translateText('§5'.$e->getMessage()));}catch(\Throwable $e){$this->getLogger()->logException($e);$sender->sendMessage('§5Операция приостановлена из-за ошибки. Проверьте консоль.');}
         return true;
     }
     public function getClanIdByPlayer(string $name) : ?string{return $this->clan->id($name);}
@@ -126,6 +140,13 @@ final class Main extends PluginBase implements Listener{
     public function getClanRoleNameByPlayer(string $name) : ?string{$id=$this->clan->id($name);return $id===null?null:$this->clan->role($id,$name)['name'];}
     public function getClanRoleByPlayer(string $name) : ?string{return $this->getClanRoleNameByPlayer($name);}
     public function awardEventXp(string $clanId,string $eventId,int $xp) : bool{return $this->clan->eventXp($clanId,$eventId,$xp);}
+    public function isInClanBattle(Player $player) : bool{
+        $id=$this->matches->playerMatch($player,true);return $id!==null && in_array($this->matches->all()[$id]['phase'],['collecting','preparing','active'],true);
+    }
+    public function overlapsClanRegion(string $world,int $minX,int $minZ,int $maxX,int $maxZ) : bool{
+        $b=['world'=>$world,'minX'=>$minX,'minZ'=>$minZ,'maxX'=>$maxX,'maxZ'=>$maxZ];
+        foreach($this->db->clans as $c)foreach($c['regions'] as $r)if(\AmyXClans\service\Rules::overlaps($b,$r))return true;return false;
+    }
     public function canBuildAt(Player $player,Position $position) : bool{return $this->regions->canAccess($player,$position) && $this->matches->canBuild($player,$position);}
     public function findClanId(string $name) : ?string{
         if(isset($this->clans[$name])) return $name;

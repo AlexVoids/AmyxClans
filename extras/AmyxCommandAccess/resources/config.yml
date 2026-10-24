@@ -1,0 +1,108 @@
+# Ограничения относятся только к обычным игрокам. OP и консоль не ограничиваются.
+# После изменений полностью перезапустите сервер.
+require-authentication: true
+
+# Только эти имена команд видны и доступны. Неуказанные алиасы тоже закрыты.
+# /tpaccept и /tpdeny принимаются как эквиваленты /tpc и /tpd:
+# эти названия используются в сообщениях вашего AmyxCommand.
+# //wand и другие варианты // WorldEdit преобразуются в /wand и т. п.
+allowed-commands:
+  - clan
+  - register
+  - login
+  - changepassword
+  - security
+  - emailcode
+  - bank
+  - tpa
+  - tpc
+  - tpd
+  - pay
+  - balance
+  - spawn
+  - gm
+  - blockinfo
+  - tell
+  - pos
+  - mine
+  - wand
+  - setinfo
+  - pos1
+  - pos2
+  - sel
+  - size
+  - expand
+  - contract
+  - set
+  - replace
+  - walls
+  - outline
+  - copy
+  - cut
+  - paste
+  - rotate
+  - undo
+  - redo
+  - sphere
+  - hsphere
+  - cyl
+  - hcyl
+  - line
+  - schem
+  - we
+  - worldedit
+
+# Используется существующий лимит AmyBuilderGuard для базового WorldEdit.
+# Если он выше этого значения, WorldEdit закрывается до исправления его конфига.
+# В plugins/AmyBuilderGuard/config.yml установите basic-max-blocks-per-operation: 15000
+worldedit-max-blocks: 15000
+
+# Эти права выдаются дополнительно к разрешениям выбранных команд.
+# Не выдавайте обычным игрокам amyxcommand.command.* или административные права.
+grant-permissions:
+  - amyxclans.command
+  - amyxcommandaccess.auth
+  - simpleauth.changepassword
+  - simpleauth.security
+  - chestmarket.create
+  - chestmarket.use
+  - chestmarket.bank
+  - amyx.economy.command.balance
+  - amyx.economy.command.pay
+  - amyxspawn.spawn
+  - AmyxMine.user
+  - amybg.worldedit.basic
+  - amybg.worldedit.shapes
+  - amyxcommand.command.tpa
+  - amyxcommand.command.tpaccept
+  - amyxcommand.command.tpdeny
+  - amyxcommand.command.tell
+  - amyxcommand.command.gm
+  - amyxcommand.command.blockinfo
+  - amyxcommand.command.pos
+
+# Дополнительные запреты: исключают повышение WorldEdit до продвинутого
+# и административные действия через оставшиеся формы.
+deny-permissions:
+  - amybg.worldedit
+  - amybg.worldedit.advanced
+  - amybg.bypass
+  - amybg.region.admin
+  - AmyxMine.op
+  - AmyxMine.admin
+  - amyxcommand.command.*
+  - amyxcommand.admin
+  - amyx.economy.command.admin
+  - chestmarket.admin.break
+  - chestmarket.admin.manage
+  - chestmarket.admin.reload
+  - simpleauth.admin
+  - simpleauth.punishments
+
+messages:
+  denied: "§cЭта команда недоступна."
+  login-first: "§cСначала войдите в аккаунт: /login."
+  unavailable: "§cПлагин этой команды сейчас недоступен."
+  already-logged-in: "§aВы уже вошли в аккаунт."
+  email-help: "§fДля получения кода восстановления включите «Забыли пароль?» в форме входа."
+  mine-help: "§f/mine <название> — перейти в шахту\n§f/mine list — список шахт\n§f/mine mylist — ваши шахты"

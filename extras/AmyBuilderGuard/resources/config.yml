@@ -1,0 +1,54 @@
+# Maximum number of blocks that one WorldEdit operation may touch.
+max-blocks-per-operation: 200000
+
+# Maximum blocks per WorldEdit operation for players with amybg.worldedit.basic.
+# Global max above also applies to advanced operators.
+basic-max-blocks-per-operation: 15000
+
+# Maximum copied or loaded schematic size.
+max-clipboard-blocks: 200000
+
+# Undo/redo operations stored per player.
+history-size: 10
+
+# false is faster for mass edits.
+update-blocks: false
+
+worldguard:
+  # IMPORTANT: regions created with two surface points protect every Y level.
+  # This also fixes old 1.1.0 regions, because missing full-height is treated as true.
+  full-height-regions: true
+
+  max-regions-per-player: 10
+  max-members-per-region: 30
+  max-region-area: 50000
+  allow-overlap: false
+
+  # OP does NOT bypass protection automatically. Grant amybg.bypass explicitly if needed.
+  operators-bypass: false
+
+  # Non-members cannot build or interact when no explicit flag exists.
+  default-build-deny: true
+  default-interact-deny: true
+
+  denial-message: "§cЭто действие запрещено в регионе §f{name}§c."
+
+  # Flags set automatically on every new region.
+  default-region-flags:
+    build: deny
+    break: deny
+    place: deny
+    interact: deny
+    container: deny
+    door-use: deny
+    trapdoor-use: deny
+    fence-gate-use: deny
+    button-use: deny
+    lever-use: deny
+    entity-interact: deny
+    pvp: deny
+    explosion: deny
+    fire-spread: deny
+    block-burn: deny
+    bucket-fill: deny
+    bucket-empty: deny

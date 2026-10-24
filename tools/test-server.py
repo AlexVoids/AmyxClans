@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import argparse,json,os,shutil,subprocess,tempfile
 from pathlib import Path
-p=argparse.ArgumentParser();p.add_argument('--php',required=True,type=Path);p.add_argument('--pmmp',required=True,type=Path);p.add_argument('--port',default=19440,type=int);a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--php',required=True,type=Path);p.add_argument('--pmmp',required=True,type=Path);p.add_argument('--port',default=19440,type=int);p.add_argument('--integrations',action='store_true');a=p.parse_args()
 r=Path(__file__).resolve().parent.parent;php=str(a.php.resolve());pm=str(a.pmmp.resolve())
 subprocess.run([php,'-n','-d','phar.readonly=0',str(r/'tools/build.php')],check=True)
 out=r/'work/AmyxClansTests.phar';out.unlink(missing_ok=True)
@@ -9,6 +9,10 @@ subprocess.run([php,'-n','-d','phar.readonly=0','-r','$p=new Phar($argv[1]);$p->
 s=Path(tempfile.mkdtemp(prefix='server-',dir=r/'work'));plugins=s/'plugins';plugins.mkdir()
 for f in [r/'build/AmyxClans.phar',r/'build/AmyxEconomy.phar',r/'build/ChatPerms.phar',out]:shutil.copy2(f,plugins/f.name)
 shutil.copy2(r/'work/input-FormAPI.phar',plugins/'FormAPI.phar')
+shutil.copy2(r/'work/input-Hologram.phar',plugins/'AmyxHologram.phar')
+if a.integrations:
+    for name in ['AmyBuilderGuard','AmyxCommandAccess']:shutil.copy2(r/f'build/{name}.phar',plugins/f'{name}.phar')
+    data=s/'plugin_data/AmyxCommandAccess';data.mkdir(parents=True);(data/'config.yml').write_text('require-authentication: false\nallowed-commands: [clan, gm]\ngrant-permissions: [amyxclans.command]\n')
 (s/'server.properties').write_text(f'server-ip=127.0.0.1\nserver-port={a.port}\nserver-portv6={a.port+1}\nenable-query=off\nlevel-type=FLAT\n')
 env=os.environ.copy();env['AMYXCLANS_TESTS']='1'
 with (s/'test.log').open('w') as log:
