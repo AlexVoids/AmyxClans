@@ -1,0 +1,70 @@
+# AmyXClans 1.4.0
+# Основные настройки механик. Все названия окон, кнопок и сообщений
+# находятся в texts.yml. После изменения используйте /clanadmin reload.
+#
+# Название клана поддерживает цветовые коды §0-§9, §a-§f, жирный §l и сброс §r.
+# Код §k и остальные форматные коды запрещены. Длина считается без разрешённых кодов.
+#
+# Значки взяты из font/glyph_E2.png ресурс-пака InMine:
+# U+E2C0 и U+E2D0-U+E2D6 — всего 8 значков.
+
+config-version: 6
+create-cost: 10000
+allow-colored-clan-names: true
+clan-name-min-length: 3
+clan-name-max-length: 16
+
+# Отображение выбранного значка в ChatPerms:
+# без значка: [Клан]
+# со значком: [значок Клан]
+show-icon-in-chat-tag: true
+clan-icon-name-separator: ' '
+member-limits:
+- 20
+- 30
+- 40
+- 50
+member-limit-upgrade-cost: 10000
+home-cost: 10000
+home-limits:
+- 3
+- 5
+- 10
+home-limit-upgrade-costs:
+  '5': 5000
+  '10': 10000
+max-channels: 3
+clan-icon-cost: 10000
+# Смена названия в магазине клана, оплата из казны.
+clan-rename-cost: 5000
+clan-icons:
+  icon_1:
+    name: Звезда
+    symbol: 
+  icon_2:
+    name: Череп
+    symbol: 
+  icon_3:
+    name: Щит
+    symbol: 
+  icon_4:
+    name: Мечи
+    symbol: 
+  icon_5:
+    name: Кирка
+    symbol: 
+  icon_6:
+    name: Колба
+    symbol: 
+  icon_7:
+    name: Талисман
+    symbol: 
+  icon_8:
+    name: Демон
+    symbol: 
+max-custom-roles: 10
+invite-lifetime: 86400
+rating:
+  kill-weight: 10
+  death-weight: 3
+  member-weight: 5

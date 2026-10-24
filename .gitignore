@@ -1,0 +1,9 @@
+/work/
+/tests/runtime/
+/.idea/
+/vendor/
+*.log
+*.db
+*.db-shm
+*.db-wal
+.env
