@@ -161,5 +161,5 @@ final class Protection implements Listener{
     /** @priority HIGHEST */
     public function form(BlockFormEvent $e) : void{if($this->protected($e->getBlock()->getPosition()))$e->cancel();}
     /** @priority HIGHEST */
-    public function explode(EntityExplodeEvent $e) : void{$e->setBlockList(array_values(array_filter($e->getBlockList(),fn($b)=>!$this->protected($b->getPosition()))));$e->setIgnitions(array_values(array_filter($e->getIgnitions(),fn($b)=>!$this->protected($b->getPosition()))));}
+    public function explode(EntityExplodeEvent $e) : void{if($this->p->matches->at($e->getPosition())!==null){$e->setBlockList([]);if(method_exists($e,'setIgnitions'))$e->setIgnitions([]);return;}$e->setBlockList(array_values(array_filter($e->getBlockList(),fn($b)=>!$this->protected($b->getPosition()))));if(method_exists($e,'getIgnitions') && method_exists($e,'setIgnitions'))$e->setIgnitions(array_values(array_filter($e->getIgnitions(),fn($b)=>!$this->protected($b->getPosition()))));}
 }

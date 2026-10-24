@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-24",
+  "runtime_php": "8.4.16 ZTS",
+  "syntax_parser_php": "8.1.34",
+  "syntax_checked_php_files": 47,
+  "server_scenarios_per_core": 28,
+  "total_successful_server_scenarios": 84,
+  "runs": [
+    {
+      "core": "PocketMine-MP 5.28.0",
+      "passed": 28,
+      "failed": 0
+    },
+    {
+      "core": "PocketMine-MP 5.44.3",
+      "passed": 28,
+      "failed": 0
+    },
+    {
+      "core": "PocketMine-MP 5.44.3 + NG stack request executor",
+      "passed": 28,
+      "failed": 0
+    }
+  ],
+  "artifact_sha256": {
+    "AmyBuilderGuard.phar": "235ff12984e46831b1985cc03d0c890ae2162c2f698ebcfb3349bcd568de13ec",
+    "AmyxClans.phar": "9ebfaec9a90c94db145d1ded32db7f5f10e8c55bf1a212ec4881f3f11434b553",
+    "AmyxCommandAccess.phar": "98121a110ba512d293cbd79819c44c4eb9cb738d68adcbfca0e4a937ea43a391",
+    "AmyxEconomy.phar": "dfd453e15cbc67adecb9bf3280c08092257dcbeebb5f950efdb3c1907a6158a7",
+    "ChatPerms.phar": "9a7e97eef0af2965bb0c90fe4c8e1620158922abcfe1593e6bf2d487eb7d38a6",
+    "FormAPI.phar": "b53dd751d02d4fd65c1eb98399b5ec75aa6ab24a8adec90036079addbd56cf5e"
+  },
+  "limitations": [
+    "Synthetic player/transport; no real Bedrock client sessions",
+    "NG executor host is not the complete NG-PocketMine-MP 5.39.1 distribution"
+  ]
+}

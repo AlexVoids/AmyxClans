@@ -102,7 +102,7 @@ trait Storage{
             }
         }
         if(!$leftPosition instanceof Position || !$rightPosition instanceof Position){
-            $player->sendMessage("§cРядом не найдено свободное место для открытия хранилища.");
+            $player->sendMessage("§5Рядом не найдено свободное место для открытия хранилища.");
             return;
         }
         $receipt=$this->key($player->getName());
@@ -125,7 +125,7 @@ trait Storage{
         if(!$leftTile instanceof ChestTile || !$rightTile instanceof ChestTile || !$leftTile->pairWith($rightTile)){
             $world->setBlock($leftPosition, $originalLeft, false);
             $world->setBlock($rightPosition, $originalRight, false);
-            $player->sendMessage("§cНе удалось создать окно хранилища. Попробуйте ещё раз.");
+            $player->sendMessage("§5Не удалось создать окно хранилища. Попробуйте ещё раз.");
             return;
         }
         $leftTile->setName("Хранилище клана");
@@ -151,7 +151,7 @@ trait Storage{
         if(!$inventory instanceof DoubleChestInventory){
             $world->setBlock($leftPosition, $originalLeft, false);
             $world->setBlock($rightPosition, $originalRight, false);
-            $player->sendMessage("§cНе удалось связать сундуки хранилища.");
+            $player->sendMessage("§5Не удалось связать сундуки хранилища.");
             return;
         }
         $left = $inventory->getLeftSide();
@@ -199,7 +199,7 @@ trait Storage{
 
             // Fallback for custom cores which don't route Chest::onInteract().
             if($player->getCurrentWindow() !== $inventory && !$player->setCurrentWindow($inventory)){
-                $player->sendMessage("§cНе удалось открыть клановое хранилище. Повторите команду после закрытия других окон.");
+                $player->sendMessage("§5Не удалось открыть клановое хранилище. Повторите команду после закрытия других окон.");
                 $this->closeStorageSession($playerKey, true);
             }
         }), 12);

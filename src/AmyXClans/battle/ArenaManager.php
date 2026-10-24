@@ -96,7 +96,7 @@ final class ArenaManager{
         $exit=$this->pos($a['exit']);if(Rules::contains($bounds,$a['exit']['world'],$exit->x,$exit->z,$exit->y))throw new \DomainException('Точка выхода должна быть вне арены.');
     }
     public function update(Player $op,string $id,callable $change) : void{
-        if(!$this->p->isOperator($op))throw new \DomainException('Только OP.');
+        if(!$this->p->isOperator($op) || !$this->p->authenticated($op))throw new \DomainException('Только OP.');
         if($this->p->matches->arenaBusy($id))throw new \DomainException('Арена занята.');
         if(!preg_match('/^[a-zA-Z0-9_-]{1,32}$/D',$id))throw new \DomainException('ID арены: латиница/цифры/_/-.');
         $a=$this->arenas[$id]??['id'=>$id,'name'=>$id,'modes'=>['arena','siege'],'maximum'=>15,'axis'=>'x','spawns'=>['a'=>[],'b'=>[]]];
@@ -104,7 +104,7 @@ final class ArenaManager{
         Database::atomic($this->p->getDataFolder().'arenas.yml',yaml_emit(['arenas'=>$this->arenas],YAML_UTF8_ENCODING));
     }
     public function delete(Player $op,string $id) : void{
-        if(!$this->p->isOperator($op) || $this->p->matches->arenaBusy($id))throw new \DomainException('Арена занята или нет OP.');
+        if(!$this->p->isOperator($op) || !$this->p->authenticated($op) || $this->p->matches->arenaBusy($id))throw new \DomainException('Арена занята или нет OP.');
         unset($this->arenas[$id]);Database::atomic($this->p->getDataFolder().'arenas.yml',yaml_emit(['arenas'=>$this->arenas],YAML_UTF8_ENCODING));
     }
 }

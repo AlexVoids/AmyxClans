@@ -123,6 +123,7 @@ final class ClanService{
         $id=$this->require($actor,'manage_roles'); $this->idle($id); $c=&$this->p->db->clans[$id];
         $a=$this->role($id,$actor->getName()); $old=$roleId===null?null:($c['roles'][$roleId]??null);
         if($roleId==='leader' || ($roleId!==null && $old===null) || ($old!==null && $old['priority'] >= $a['priority']) || ($roleId==='deputy' && $a['priority']!==10)) throw new \DomainException('Нельзя изменять эту роль.');
+        if(($roleId==='deputy' && $priority!==9) || ($roleId==='member' && $priority!==1))throw new \DomainException('Приоритеты заместителя и участника фиксированы: 9 и 1.');
         if($priority<1 || $priority>9 || $priority >= $a['priority']) throw new \DomainException('Приоритет роли должен быть ниже вашего, от 1 до 9.');
         Rules::roleName($name,$c['roles'],$roleId,(int)$this->p->cfg('role-name-max-length',24));
         if($roleId===null && count($c['roles']) >= (int)$this->p->cfg('max-custom-roles',10)+3) throw new \DomainException('Достигнут лимит ролей.');

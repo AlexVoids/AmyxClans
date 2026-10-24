@@ -101,9 +101,20 @@ final class Main extends PluginBase implements Listener{
         return strtr($text,['&5'=>$accent,'&f'=>$plain,'§c'=>$accent,'§a'=>$accent,'§e'=>$accent,'§7'=>$plain,'§8'=>$plain,'§5'=>$accent,'§f'=>$plain]);
     }
     public function message(Player $player,string $text) : void{$player->sendMessage($this->translateText((string)$this->cfg('style.prefix','§5[Кланы] §f').$text));}
+    /** Canonical /clan must not be intercepted by old command bundles with their own clan stub.
+     * @priority LOWEST
+     */
+    public function routeClanCommand(\pocketmine\event\server\CommandEvent $event) : void{
+        $sender=$event->getSender();if(!$sender instanceof Player)return;
+        $label=strtolower(explode(' ',trim(ltrim($event->getCommand(),'/')))[0]);
+        if(!in_array($label,['clan','amyxclans:clan'],true))return;
+        $event->cancel();$command=$this->getCommand('clan');
+        if($command!==null && $command->testPermission($sender))$this->onCommand($sender,$command,'clan',[]);
+    }
     public function onCommand(CommandSender $sender,Command $command,string $label,array $args) : bool{
         try{
             if($command->getName()==='clanadmin'){
+                if($sender instanceof Player && !$this->authenticated($sender))throw new \DomainException('Сначала войдите в аккаунт.');
                 if(!$this->isOperator($sender)) throw new \DomainException('Настройка доступна только OP.');
                 if(($args[0]??'')==='reload'){$this->reloadConfig();$this->arenas->reload();$this->reloadInterface();$sender->sendMessage('Настройки перезагружены.');return true;}
                 if(($args[0]??'')==='xp' && isset($args[1],$args[2])){

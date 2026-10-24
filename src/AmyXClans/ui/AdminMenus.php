@@ -4,14 +4,14 @@ namespace AmyXClans\ui;
 use pocketmine\player\Player;
 trait AdminMenus{
     public function admin(Player $p) : void{
-        if(!$this->p->isOperator($p))throw new \DomainException('Только OP.');$buttons=[];
+        if(!$this->p->isOperator($p) || !$this->p->authenticated($p))throw new \DomainException('Только OP.');$buttons=[];
         foreach($this->p->arenas->all() as $id=>$a)$buttons[]=['Арена §5'.$id,fn()=> $this->arenaEditor($p,$id)];
         $buttons[]=['Создать арену',fn()=> $this->custom($p,'Новая арена',[['input','ID арены','Латиница, цифры, _ или -']],function($d)use($p):void{$id=trim($d[0]);if($this->p->arenas->get($id)!==null)throw new \DomainException('Арена существует.');$this->p->arenas->update($p,$id,static function(array &$a):void{});$this->arenaEditor($p,$id);},fn()=> $this->admin($p),true)];
-        foreach($this->p->matches->all() as $id=>$m)if(!in_array($m['phase'],['finished','aborted'],true))$buttons[]=['Прервать битву §5'.substr($id,0,8),fn()=> $this->confirm($p,'Прервать битву','Карта будет восстановлена; новых наград не будет.',function()use($p,$id):void{if(!$this->p->isOperator($p))throw new \DomainException('Только OP.');$this->p->matches->abort($id,'Остановлена оператором '.$p->getName());$this->admin($p);},fn()=> $this->admin($p),true)];
+        foreach($this->p->matches->all() as $id=>$m)if(!in_array($m['phase'],['finished','aborted'],true))$buttons[]=['Прервать битву §5'.substr($id,0,8),fn()=> $this->confirm($p,'Прервать битву','Карта будет восстановлена; новых наград не будет.',function()use($p,$id):void{if(!$this->p->isOperator($p) || !$this->p->authenticated($p))throw new \DomainException('Только OP.');$this->p->matches->abort($id,'Остановлена оператором '.$p->getName());$this->admin($p);},fn()=> $this->admin($p),true)];
         $this->menu($p,'Настройка арен · OP','Настройки и технические операции доступны только операторам сервера.',$buttons,null,true);
     }
     private function arenaEditor(Player $p,string $id) : void{
-        if(!$this->p->isOperator($p))throw new \DomainException('Только OP.');$a=$this->p->arenas->get($id);if($a===null)throw new \DomainException('Арена удалена.');
+        if(!$this->p->isOperator($p) || !$this->p->authenticated($p))throw new \DomainException('Только OP.');$a=$this->p->arenas->get($id);if($a===null)throw new \DomainException('Арена удалена.');
         $change=function(callable $fn)use($p,$id):void{$this->p->arenas->update($p,$id,$fn);$this->arenaEditor($p,$id);};$buttons=[];
         foreach([1,2] as $corner)$buttons[]=['Поставить угол '.$corner.' здесь',function()use($p,$change,$corner):void{
             $pos=$this->p->arenas->position($p->getPosition());
@@ -48,7 +48,7 @@ trait AdminMenus{
         }];
         if(isset($a['region']))$buttons[]=['Отвязать регион',fn()=> $change(function(array &$a):void{unset($a['region']);})];
         $buttons[]=['Проверить готовность',function()use($p,$id):void{
-            if(!$this->p->isOperator($p))throw new \DomainException('Только OP.');$a=$this->p->arenas->get($id);$lines=[];
+            if(!$this->p->isOperator($p) || !$this->p->authenticated($p))throw new \DomainException('Только OP.');$a=$this->p->arenas->get($id);$lines=[];
             foreach($a['modes'] as $mode)foreach([3,5,10,15] as $n){try{$this->p->arenas->validate($a,$mode,$n);$lines[]=$mode.' '.$n.'×'.$n.': готова';}catch(\DomainException $e){$lines[]=$mode.' '.$n.'×'.$n.': '.$e->getMessage();}}
             $this->menu($p,'Проверка арены',implode("\n",$lines),[],fn()=> $this->arenaEditor($p,$id),true);
         }];

@@ -59,6 +59,7 @@ final class MatchManager{
         $id=$this->p->clan->require($actor,'wars');$r=$this->p->db->runtime['requests'][$rid]??null;
         if($r===null || $r['b']!==$id || $r['expires']<time())throw new \DomainException('Заявка больше недоступна.');
         if(!$accept){unset($this->p->db->runtime['requests'][$rid]);$this->p->clan->log($id,$actor->getName(),'отклонил заявку на битву');$this->p->db->save();return;}
+        if(!$this->p->cfg('features.wars',true) || ($r['mode']==='siege' && !$this->p->cfg('features.siege',true)))throw new \DomainException('Режим отключён.');
         $this->eligible($r['a']);$this->eligible($r['b']);
         $arena=$this->p->arenas->select($r['mode'],$r['size'],$r['b']);if($arena===null)throw new \DomainException('Нет свободной настроенной арены с достаточным числом стартовых точек.');
         $world=$this->p->arenas->world($arena['bounds']['world']);
@@ -73,7 +74,7 @@ final class MatchManager{
         $this->p->arenas->pin($mid,$arena['bounds']);
         $this->p->snapshots->capture($mid,$arena['bounds'],function()use($mid):void{
             $m=&$this->p->db->runtime['matches'][$mid];if($m['phase']!=='initializing')return;
-            $this->p->snapshots->wall($m['arena'],true);$m['phase']='collecting';$this->p->db->save();$this->broadcast($m,'Сбор участников: 10 минут. Войти можно через /clan.');
+            $this->p->snapshots->wall($m['arena'],true);$m['phase']='collecting';$m['deadline']=time()+(int)$this->p->cfg('war.collect-seconds',600);$this->p->db->save();$this->broadcast($m,'Сбор участников: 10 минут. Войти можно через /clan.');
         });
     }
     public function cancelRequests(string $id) : void{foreach($this->p->db->runtime['requests']??[] as $rid=>$r)if($r['a']===$id || $r['b']===$id)unset($this->p->db->runtime['requests'][$rid]);}
@@ -89,7 +90,7 @@ final class MatchManager{
         $this->p->db->runtime['returns'][$uuid]=$ticket;
         $m['players'][$uuid]=['name'=>$player->getName(),'side'=>$side,'spawn'=>$slot,'alive'=>true,'joined'=>time()];$this->p->db->save();
         try{
-            $player->setGamemode(GameMode::SURVIVAL());$this->teleport($player,$spawn);$player->save();
+            if(!$player->setGamemode(GameMode::SURVIVAL()) && $player->getGamemode()!==GameMode::SURVIVAL())throw new \DomainException('Сервер запретил режим выживания.');$this->teleport($player,$spawn);$player->save();
         }catch(\Throwable $e){unset($m['players'][$uuid]);$this->returnPlayer($player);$this->p->db->save();throw new \DomainException('Не удалось войти в битву: '.$e->getMessage());}
         if($this->count($m,'a')===$m['size'] && $this->count($m,'b')===$m['size']){$m['phase']='preparing';$m['deadline']=time()+(int)$this->p->cfg('war.prepare-seconds',300);$this->broadcast($m,'Команды собраны. Началась подготовка.');}
         $this->p->db->save();
@@ -174,7 +175,9 @@ final class MatchManager{
         $home=$ticket===null?null:($this->p->db->clans[$ticket['clan']]['home']??null);
         if($home!==null){try{$pos=$this->p->arenas->pos($home);if($this->at($pos)===null)return $pos;}catch(\DomainException){}}
         // User specification chooses server spawn when no home is available.
-        return $this->p->getServer()->getWorldManager()->getDefaultWorld()->getSafeSpawn();
+        $spawn=$this->p->getServer()->getWorldManager()->getDefaultWorld()->getSafeSpawn();
+        if($this->at($spawn)!==null && $ticket!==null){try{$exit=$this->p->arenas->pos($ticket['exit']);if($this->at($exit)===null)return $exit;}catch(\DomainException){}}
+        return $spawn;
     }
     public function returnPlayer(Player $p) : void{
         $uuid=$p->getUniqueId()->toString();$ticket=$this->p->db->runtime['returns'][$uuid]??null;if($ticket===null || !$p->isAlive())return;
@@ -228,8 +231,13 @@ final class MatchManager{
         $world=$this->p->arenas->world($m['arena']['bounds']['world']);
         if($world!==null){
             $exit=$this->p->arenas->pos($m['arena']['exit']);
-            foreach($world->getEntities() as $entity)if($entity instanceof \pocketmine\entity\object\ItemEntity && !$entity->isFlaggedForDespawn() && Rules::contains($m['arena']['bounds'],$world->getFolderName(),$entity->getPosition()->x,$entity->getPosition()->z,$entity->getPosition()->y)){
-                if($this->p->totems->marker($entity->getItem())!==null)$entity->flagForDespawn();else $entity->teleport($exit);
+            foreach($world->getEntities() as $entity){
+                $inside=Rules::contains($m['arena']['bounds'],$world->getFolderName(),$entity->getPosition()->x,$entity->getPosition()->z,$entity->getPosition()->y);
+                $owner=$entity->getOwningEntity();$owned=$owner instanceof Player && isset($m['players'][$owner->getUniqueId()->toString()]);
+                if(($inside || $owned) && ($entity instanceof \pocketmine\entity\projectile\Projectile || $entity instanceof \pocketmine\entity\object\PrimedTNT || $entity instanceof \pocketmine\entity\object\FallingBlock)){$entity->flagForDespawn();continue;}
+                if($inside && $entity instanceof \pocketmine\entity\object\ItemEntity && !$entity->isFlaggedForDespawn()){
+                    if($this->p->totems->marker($entity->getItem())!==null)$entity->flagForDespawn();else $entity->teleport($exit);
+                }
             }
         }
         foreach($m['players'] as $data){$player=$this->p->getServer()->getPlayerExact($data['name']);if($player!==null && $player->isAlive())$this->returnPlayer($player);}

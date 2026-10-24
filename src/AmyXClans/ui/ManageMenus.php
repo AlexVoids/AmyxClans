@@ -18,12 +18,12 @@ trait ManageMenus{
             $lines=['Название: §5'.$role['name'],'Приоритет: §5'.$role['priority']];foreach(Rules::RIGHTS as $right=>$label)$lines[]='§f'.$label.': §5'.(in_array($right,$role['permissions'],true)?'Включено':'Выключено');
             $this->menu($p,'Роль · только чтение',implode("\n",$lines),[],fn()=> $this->roles($p));return;
         }
-        $items=[['input','Название роли','Только буквы и пробелы',$role['name']],['slider','Приоритет',1,9,$role['priority']]];
+        $items=[['input','Название роли','Только буквы и пробелы',$role['name']],(in_array($rid,['deputy','member'],true)?['label','Приоритет: §5'.$role['priority']]:['slider','Приоритет',1,9,$role['priority']])];
         foreach(Rules::RIGHTS as $right=>$label)$items[]=['toggle',$label,in_array($right,$role['permissions'],true)];
         $this->menu($p,'Управление ролью','Роль: §5'.($role['name']===''?'Новая':$role['name']),[
             ['Изменить название, приоритет и права',fn()=> $this->custom($p,'Настройка роли',$items,function($d)use($p,$rid):void{
                 $rights=[];foreach(array_keys(Rules::RIGHTS) as $i=>$key)if($d[$i+2])$rights[]=$key;
-                $this->p->clan->saveRole($p,$rid,trim($d[0]),(int)$d[1],$rights);$this->roles($p);
+                $this->p->clan->saveRole($p,$rid,trim($d[0]),$rid==='deputy'?9:($rid==='member'?1:(int)$d[1]),$rights);$this->roles($p);
             },fn()=> $this->roles($p))],
             ...($rid!==null && !in_array($rid,['member','deputy'],true)?[['Удалить роль',fn()=> $this->confirm($p,'Удаление роли','Участники этой роли станут обычными участниками.',function()use($p,$rid):void{$this->p->clan->deleteRole($p,$rid);$this->roles($p);},fn()=> $this->roles($p))]]:[])
         ],fn()=> $this->roles($p));
@@ -125,7 +125,9 @@ trait ManageMenus{
     private function region(Player $p,string $rid) : void{
         $id=$this->p->clan->require($p);$r=$this->p->db->clans[$id]['regions'][$rid]??null;if($r===null)throw new \DomainException('Регион удалён.');$buttons=[];
         if($this->p->clan->has($id,$p->getName(),'regions')){
-            if($r['bonus']<10){$next=$r['bonus']+2;$cost=(int)$this->p->cfg('region-expansion-prices.'.$next,10000*$next);$buttons[]=['Расширить до +'.$next.' · §5'.$cost,fn()=> $this->confirm($p,'Расширение','Купить суммарное расширение +'.$next.' за §5'.$cost.' §fмонет?',function()use($p,$rid):void{$this->p->regions->expand($p,$rid);$this->region($p,$rid);},fn()=> $this->region($p,$rid))];}
+            [, $base]=$this->p->regions->limits($id);
+            if($base>$r['baseSize'])$buttons[]=['Применить размер уровня · §5'.$base.'×'.$base,fn()=> $this->confirm($p,'Размер региона','Применить размер текущего уровня? Бонус сохранится. Соседние территории будут проверены.',function()use($p,$rid):void{$this->p->regions->applyLevelSize($p,$rid);$this->region($p,$rid);},fn()=> $this->region($p,$rid))];
+            if($r['bonus']<10){$next=$r['bonus']+2;$cost=(int)$this->p->cfg('region-expansion-prices.'.$next,10000*$next);$buttons[]=['Расширить до +'.$next.' · §5'.$cost,fn()=> $this->confirm($p,'Расширение','Купить суммарное расширение +'.$next.' за §5'.$cost.' §fмонет?',function()use($p,$rid,$next,$cost):void{$this->p->regions->expand($p,$rid,$next,$cost);$this->region($p,$rid);},fn()=> $this->region($p,$rid))];}
             $buttons[]=['Права ролей',function()use($p,$id,$rid,$r):void{
                 $roles=$this->p->db->clans[$id]['roles'];$elements=[];$ids=[];foreach($roles as $roleId=>$role)if($roleId!=='leader'){$ids[]=$roleId;$elements[]=['toggle',$role['name'],(bool)($r['roles'][$roleId]??false)];}
                 $this->custom($p,'Доступ к региону',$elements,function($d)use($p,$rid,$ids):void{$allowed=[];foreach($ids as $i=>$roleId)if($d[$i])$allowed[]=$roleId;$this->p->regions->acl($p,$rid,$allowed);$this->region($p,$rid);},fn()=> $this->region($p,$rid));

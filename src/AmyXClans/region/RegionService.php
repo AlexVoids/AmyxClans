@@ -63,13 +63,21 @@ final class RegionService{
         if($r===null) throw new \DomainException('Регион удалён.');
         $this->p->clan->log($id,$actor->getName(),'удалил регион §5'.$r['name']);unset($this->p->db->clans[$id]['regions'][$rid]);$this->p->db->save();
     }
-    public function expand(Player $actor,string $rid) : void{
+    public function expand(Player $actor,string $rid,?int $expectedBonus=null,?int $expectedCost=null) : void{
         $id=$this->p->clan->require($actor,'regions');$this->p->clan->require($actor,'shop');$this->p->clan->idle($id);
         $r=$this->p->db->clans[$id]['regions'][$rid]??null;if($r===null) throw new \DomainException('Регион удалён.');
         $next=$r['bonus']+2;if($next>10) throw new \DomainException('Максимальное расширение уже куплено.');
         $new=array_replace($r,['bonus'=>$next],Rules::bounds($r['centerX'],$r['centerZ'],$r['baseSize']+$next));$this->validate($new,$id,$rid);
         $cost=max(0,(int)$this->p->cfg('region-expansion-prices.'.$next,10000*$next));
+        if(($expectedBonus!==null && $expectedBonus!==$next) || ($expectedCost!==null && $expectedCost!==$cost))throw new \DomainException('Стоимость или ступень расширения изменились. Откройте регион заново.');
         $this->p->treasury->spend($id,$actor->getName(),$cost,'расширил регион §5'.$r['name'].' §fдо +'.$next,function()use($id,$rid,$new):void{$this->p->db->clans[$id]['regions'][$rid]=$new;});
+    }
+    public function applyLevelSize(Player $actor,string $rid) : void{
+        $id=$this->p->clan->require($actor,'regions');$this->p->clan->idle($id);
+        $r=$this->p->db->clans[$id]['regions'][$rid]??null;if($r===null)throw new \DomainException('Регион удалён.');
+        [, $size]=$this->limits($id);if($size<=$r['baseSize'])throw new \DomainException('Размер текущего уровня уже применён.');
+        $new=array_replace($r,['baseSize'=>$size],Rules::bounds($r['centerX'],$r['centerZ'],$size+$r['bonus']));$this->validate($new,$id,$rid);
+        $this->p->db->clans[$id]['regions'][$rid]=$new;$this->p->clan->log($id,$actor->getName(),'применил размер уровня к региону §5'.$r['name']);$this->p->db->save();
     }
     public function acl(Player $actor,string $rid,array $roles) : void{
         $id=$this->p->clan->require($actor,'regions');$this->p->clan->idle($id);$c=&$this->p->db->clans[$id];
