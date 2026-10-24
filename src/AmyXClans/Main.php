@@ -97,7 +97,8 @@ final class Main extends PluginBase implements Listener{
     public function isOperator(CommandSender $sender) : bool{return !($sender instanceof Player) || $this->getServer()->isOp($sender->getName());}
     public function translateText(string $text) : string{
         $text=strtr($text,$this->replacements);
-        return str_replace(['&5','&f','§c','§a','§e','§7','§8'],[(string)$this->cfg('style.accent','§5'),(string)$this->cfg('style.text','§f'),(string)$this->cfg('style.accent','§5'),(string)$this->cfg('style.accent','§5'),(string)$this->cfg('style.accent','§5'),'§f','§f'],$text);
+        $accent=(string)$this->cfg('style.accent','§5');$plain=(string)$this->cfg('style.text','§f');
+        return strtr($text,['&5'=>$accent,'&f'=>$plain,'§c'=>$accent,'§a'=>$accent,'§e'=>$accent,'§7'=>$plain,'§8'=>$plain,'§5'=>$accent,'§f'=>$plain]);
     }
     public function message(Player $player,string $text) : void{$player->sendMessage($this->translateText((string)$this->cfg('style.prefix','§5[Кланы] §f').$text));}
     public function onCommand(CommandSender $sender,Command $command,string $label,array $args) : bool{

@@ -9,7 +9,19 @@ use pocketmine\player\Player;
 
 final class ArenaManager{
     private array $arenas=[];
+    private array $loaders=[];
     public function __construct(private Main $p){$this->reload();}
+    public function pin(string $match,array $bounds) : void{
+        if(isset($this->loaders[$match]))return;
+        $world=$this->world($bounds['world']);if($world===null)return;
+        $loader=new class implements \pocketmine\world\ChunkLoader{};$coordinates=[];
+        for($x=$bounds['minX']>>4;$x<=($bounds['maxX']>>4);++$x)for($z=$bounds['minZ']>>4;$z<=($bounds['maxZ']>>4);++$z){$world->registerChunkLoader($loader,$x,$z);$coordinates[]=[$x,$z];}
+        $this->loaders[$match]=[$world,$loader,$coordinates];
+    }
+    public function release(string $match) : void{
+        if(!isset($this->loaders[$match]))return;[$world,$loader,$coordinates]=$this->loaders[$match];
+        foreach($coordinates as [$x,$z])$world->unregisterChunkLoader($loader,$x,$z);unset($this->loaders[$match]);
+    }
     public function reload() : void{
         $data=yaml_parse_file($this->p->getDataFolder().'arenas.yml');
         if(!is_array($data) || !is_array($data['arenas']??null)) throw new \DomainException('Некорректный arenas.yml');

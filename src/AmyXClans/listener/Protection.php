@@ -135,7 +135,7 @@ final class Protection implements Listener{
         $this->p->message($p,(string)$messages->get($hasHome?'defeat-home':'defeat-spawn','Вы выбыли из битвы.'));
         $this->p->getScheduler()->scheduleDelayedTask(new ClosureTask(function()use($p):void{if($p->isConnected() && $p->isAlive())$this->p->matches->returnPlayer($p);}),1);
     }
-    public function quit(PlayerQuitEvent $e) : void{$this->p->matches->quit($e->getPlayer());unset($this->activity[$e->getPlayer()->getUniqueId()->toString()]);}
+    public function quit(PlayerQuitEvent $e) : void{$this->p->matches->quit($e->getPlayer());$this->p->playtime->forget($e->getPlayer());unset($this->activity[$e->getPlayer()->getUniqueId()->toString()]);}
     /** @priority HIGHEST */
     public function held(PlayerItemHeldEvent $e) : void{
         if($this->p->totems->carrier($e->getPlayer())!==null && $e->getSlot()!==$e->getPlayer()->getInventory()->getHeldItemIndex())$this->p->totems->dropCarrier($e->getPlayer());

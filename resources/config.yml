@@ -141,3 +141,8 @@ snapshot:
 forms:
   title-prefix: '§5AmyxCraft §f| '
   page-size: 10
+
+role-default-permissions:
+  member: []
+  deputy: [invite, kick, manage_roles, channels, homes, deposit, withdraw, history, wars, regions, settings, shop, change_roles, requests]
+history-timezone: Asia/Yekaterinburg

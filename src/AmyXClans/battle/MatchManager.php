@@ -70,6 +70,7 @@ final class MatchManager{
             unset($this->p->db->runtime['requests'][$rid]);
             foreach([$r['a'],$r['b']] as $cid)$this->p->clan->log($cid,$actor->getName(),'принял битву §5'.$mid.'§f. Сбор команды начат');
         });
+        $this->p->arenas->pin($mid,$arena['bounds']);
         $this->p->snapshots->capture($mid,$arena['bounds'],function()use($mid):void{
             $m=&$this->p->db->runtime['matches'][$mid];if($m['phase']!=='initializing')return;
             $this->p->snapshots->wall($m['arena'],true);$m['phase']='collecting';$this->p->db->save();$this->broadcast($m,'Сбор участников: 10 минут. Войти можно через /clan.');
@@ -222,7 +223,7 @@ final class MatchManager{
         $this->p->db->save();$this->restore($mid);
     }
     private function restore(string $mid) : void{
-        $m=&$this->p->db->runtime['matches'][$mid];$m['phase']='restoring';$this->p->db->save();
+        $m=&$this->p->db->runtime['matches'][$mid];$this->p->arenas->pin($mid,$m['arena']['bounds']);$m['phase']='restoring';$this->p->db->save();
         $this->p->totems->cleanup($mid);
         $world=$this->p->arenas->world($m['arena']['bounds']['world']);
         if($world!==null){
@@ -235,12 +236,12 @@ final class MatchManager{
         if($this->p->snapshots->pending($mid))return; // capture callback/next recovery will retry; never discard a partial map
         if(!$this->p->snapshots->exists($mid)){
             // Initializing matches have not changed the world until a complete snapshot exists.
-            if(isset($m['abortReason'])){$m['phase']='aborted';$this->p->db->save();return;}
+            if(isset($m['abortReason'])){$m['phase']='aborted';$this->p->db->save();$this->p->arenas->release($mid);return;}
             throw new \RuntimeException('Нельзя восстановить матч без снимка '.$mid);
         }
         if($world===null)return; // durable reservation remains; retry when the world is available
         $this->p->snapshots->restore($mid,function()use($mid):void{
-            $m=&$this->p->db->runtime['matches'][$mid];$m['phase']=isset($m['abortReason'])?'aborted':'finished';$this->p->db->save();$this->p->snapshots->forget($mid);
+            $m=&$this->p->db->runtime['matches'][$mid];$m['phase']=isset($m['abortReason'])?'aborted':'finished';$this->p->db->save();$this->p->snapshots->forget($mid);$this->p->arenas->release($mid);
         });
     }
     public function recover() : void{
@@ -255,6 +256,7 @@ final class MatchManager{
             $this->p->db->save();
             $this->p->totems->cleanup((string)$id);
             foreach($m['players'] as $data){$p=$this->p->getServer()->getPlayerExact($data['name']);if($p!==null && $p->isAlive())$this->returnPlayer($p);}
+            $this->p->arenas->release((string)$id);
             // Recovery on next boot restores the durable snapshot; do not discard the match.
         }
     }

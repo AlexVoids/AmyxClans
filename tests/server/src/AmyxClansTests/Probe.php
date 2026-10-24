@@ -83,6 +83,10 @@ final class Probe extends PluginBase{
                 for($i=0;$i<5;++$i)$c->regions->expand($p,$rid);$r=$c->db->clans[$id]['regions'][$rid];self::ok($r['bonus']===10 && $r['maxX']-$r['minX']+1===35);self::denied(fn()=> $c->regions->expand($p,$rid));
                 $c->regions->acl($p,$rid,[]);self::ok(!$c->regions->canAccess($this->players['Ally'],$pos) && $c->regions->canAccess($p,$pos));
             });
+            $this->test('legacy shared storage uses one session and restores its temporary blocks',function()use($c,$w):void{
+                $w->setChunk(6,6,new \pocketmine\world\format\Chunk([],true));$p=$this->players['Alice'];$c->matches->teleport($p,['world'=>$w->getFolderName(),'x'=>100,'y'=>100,'z'=>100]);
+                $c->openStorage($p);self::denied(fn()=> $c->openStorage($this->players['Ally']));$receipts=$c->db->runtime['storageBlocks'];self::ok(count($receipts)===1);$receipt=reset($receipts);$c->closeStorage($p);foreach($receipt['positions'] as [$x,$y,$z])self::ok($w->getBlockAt((int)$x,(int)$y,(int)$z)->getTypeId()===B::AIR()->getTypeId());self::ok($c->db->runtime['storageBlocks']===[]);
+            });
             $this->test('arena validation requires distinct spawns and safe wall',function()use($c,$w):void{
                 $this->getServer()->getOps()->set('alice',true);
                 for($cx=0;$cx<=1;++$cx)for($cz=0;$cz<=1;++$cz)$w->setChunk($cx,$cz,new \pocketmine\world\format\Chunk([],true));
@@ -131,6 +135,12 @@ final class Probe extends PluginBase{
             });
             $this->test('restart recovery restores blocks and tile NBT without awarding again',function()use($c,$w):void{
                 $mid=$this->match('arena',false);$before=$c->db->clans[$this->ids['a']]['rating'];$w->setBlockAt(4,101,8,B::DIAMOND());$w->getTileAt(6,100,12)->getInventory()->clearAll();$c->matches->recover();$this->drain();self::ok($w->getBlockAt(4,101,8)->getTypeId()===B::AIR()->getTypeId());$stored=$w->getTileAt(6,100,12)->getInventory()->getItem(0);self::ok($stored->getCount()===17 && $stored->getCustomName()==='Original NBT');self::ok($c->db->clans[$this->ids['a']]['rating']===$before && $c->matches->all()[$mid]['phase']==='aborted');$db=new Database($c->getDataFolder());self::ok($db->runtime['matches'][$mid]['phase']==='aborted' && isset($db->clans[$this->ids['a']]['settlements']));
+            });
+            $this->test('defender region siege snapshots full height and transfers ownership once',function()use($c,$w,$config):void{
+                foreach($this->players as $p)$c->matches->teleport($p,['world'=>$w->getFolderName(),'x'=>100,'y'=>100,'z'=>100]);
+                $owner=$this->ids['b'];$rid=array_key_first($c->db->clans[$owner]['regions']);$region=['name'=>'Defender land','world'=>$w->getFolderName(),'centerX'=>8,'centerZ'=>8,'baseSize'=>17,'bonus'=>0,'roles'=>array_fill_keys(array_keys($c->db->clans[$owner]['roles']),true)]+Rules::bounds(8,8,17);$c->db->clans[$owner]['regions'][$rid]=$region;$c->db->clans[$this->ids['a']]['level']=3;
+                $c->arenas->update($this->players['Alice'],'test',function(array &$a)use($w,$owner,$rid):void{$a['region']=['clan'=>$owner,'id'=>$rid];$a['modes']=['siege'];$a['bounds']['minY']=$a['wall']['minY']=$w->getMinY();$a['bounds']['maxY']=$a['wall']['maxY']=$w->getMaxY()-1;});$config->setNested('war.siege-transfer-region',true);
+                $mid=$this->match('siege');$c->matches->tick($c->matches->all()[$mid]['deadline']);$p=$this->players['Alice'];self::ok($c->regions->canAccess($p,new Position(6,100,6,$w)),'Attacker blocked in active defender region');$c->totems->pickup($p,$mid,'b');$m=$c->matches->all()[$mid];$c->totems->interact($p,$c->arenas->pos($m['arena']['chests']['a']));$this->drain();self::ok(!isset($c->db->clans[$owner]['regions'][$rid]) && count($c->db->clans[$this->ids['a']]['regions'])===5 && $c->matches->all()[$mid]['phase']==='finished');
             });
         }catch(\Throwable $e){$this->failures['suite']=$e->getMessage();$this->getLogger()->logException($e);}
         finally{

@@ -58,6 +58,10 @@ final class ClanService{
         $cost=max(0,(int)$this->p->cfg('create-cost',10000));
         $key=mb_strtolower($player->getName());
         $draft=['id'=>$id,'schemaVersion'=>4,'name'=>$name,'leader'=>$key,'createdAt'=>time(),'bank'=>0,'debt'=>0,'level'=>1,'xp'=>0,'rating'=>(int)$this->p->cfg('ranking.initial',0),'memberLimit'=>20,'roles'=>Rules::roles(),'members'=>[$key=>['name'=>$player->getName(),'uuid'=>$uuid,'role'=>'leader','joinedAt'=>time(),'kills'=>0,'deaths'=>0]],'joinSeen'=>['name:'.$key=>true,'uuid:'.$uuid=>true],'invites'=>[],'requests'=>[],'channels'=>['general'=>['name'=>'общий','priority'=>1]],'home'=>null,'legacyHomes'=>[],'homes'=>[],'regions'=>[],'storage'=>[],'storageMinRole'=>'member','history'=>[],'purchasedIcons'=>[],'icon'=>'','kills'=>0,'deaths'=>0,'pvp'=>false,'visible'=>true,'settlements'=>[]];
+        foreach(['member','deputy'] as $roleId){
+            $custom=$this->p->cfg('role-default-permissions.'.$roleId,null);
+            if(is_array($custom))$draft['roles'][$roleId]['permissions']=array_values(array_intersect($custom,array_keys(Rules::RIGHTS)));
+        }
         $this->p->db->runtime['creations'][$op]=['state'=>'pending','uuid'=>$uuid,'player'=>$player->getName(),'cost'=>$cost,'draft'=>$draft];
         $this->p->db->save(); $this->applyCreation($op);
     }

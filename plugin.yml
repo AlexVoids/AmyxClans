@@ -1,7 +1,7 @@
 name: AmyXClans
 main: AmyXClans\Main
 version: 2.0.0
-api: 5.0.0
+api: 5.28.0
 author: AlexVoids
 description: Кланы AmyxCraft, регионы, казна и два режима битв
 depend: [AmyxEconomy, FormAPI]

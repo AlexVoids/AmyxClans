@@ -17,6 +17,7 @@ final class Playtime{
             $row['seconds']+=$elapsed; $row['name']=$p->getName();
         }
     }
+    public function forget(Player $p) : void{unset($this->last[$p->getUniqueId()->toString()]);}
     public function seconds(Player $p) : int{
         $local=(int)($this->p->db->runtime['playtime'][$p->getUniqueId()->toString()]['seconds']??0);
         $stats=$this->p->getServer()->getPluginManager()->getPlugin('AmyxStats');
