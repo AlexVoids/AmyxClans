@@ -1,0 +1,219 @@
+# ChatPerms 1.5.5 — права, чат, клан и платформа для PocketMine-MP 5.
+version: "1.5.5"
+
+# Включить одну общую строку чата для всех групп.
+# Цвет и название привилегии берутся из display_name/color самой группы.
+use_global_chat_format: true
+global_chat_format: '{PLATFORM} {GROUP} {CLAN} §f{PLAYER} §f §f{MESSAGE}'
+
+# Глобальный и локальный чат.
+# Обычное сообщение отправляется в локальный чат.
+# Сообщение, начинающееся с !, отправляется глобально; сам ! в чат не попадает.
+chat_channels_enabled: true
+local_chat_radius: 150
+global_chat_prefix: '!'
+local_chat_label: '§eⓁ'
+global_chat_label: '§aⒼ'
+chat_label_separator: ' '
+
+# Временное сообщение над игроком после отправки в чат.
+# placement: below — ниже стандартного nametag, above — выше.
+# blank-lines-between: 1 означает одну пустую строку между nametag и сообщением.
+nametag_update_period_ticks: 20
+nametag_chat_bubble:
+  enabled: true
+  duration-seconds: 6
+  placement: below
+  blank-lines-between: 1
+  max-lines: 2
+  max-characters-per-line: 28
+  max-message-characters: 80
+  strip-message-colors: true
+  type-names:
+    local: 'Локальный'
+    global: 'Глобальный'
+  type-icons:
+    local: '§eⓁ'
+    global: '§aⒼ'
+  first-line-format: '{CHAT_ICON} §7{CHAT_TYPE}: §f{MESSAGE}'
+  continuation-line-format: '§f{MESSAGE}'
+
+# Включить одну общую строку над головой для всех групп.
+# Нужный порядок: платформа → привилегия → клан → ник.
+use_global_nametag_format: true
+global_nametag_format: '{PLATFORM} {GROUP} {CLAN} §f{PLAYER}'
+rename_nametag: true
+
+# Белые скобки, цветное название привилегии.
+# Пример VIP: §f[§aVIP§f]
+group_tag_format: '§f[§{GROUP_COLOR}{GROUP_NAME}§f]'
+
+# Если клана нет, {CLAN} становится пустым и лишний пробел удаляется.
+empty_clan_tag: ''
+# Клан по умолчанию белый: [Название]
+clan_tag_format: '§f[{CLAN_NAME}§f]'
+
+# Значок платформы.
+platform_enabled: true
+platform_icon_format: '{ICON}'
+# Оставь пустым: неизвестная платформа не будет подписана неправильно.
+platform_fallback: 'windows'
+platform_debug: false
+
+# Ручное исправление платформы для конкретного игрока при необходимости.
+# Проверка платформы: /amyxplatform Ник
+# Проверка самого ресурс-пака: /amyxglyph
+platform_overrides: {}
+# Пример:
+# platform_overrides:
+#   amytist32666: windows
+
+# Значения DeviceOS Bedrock. Их можно менять без пересборки плагина.
+platform_device_os_map:
+  1: android
+  2: apple
+  3: apple
+  4: android
+  7: windows
+  8: windows
+  10: apple
+  11: playstation
+  13: xbox
+  14: windows
+
+# Пять последних платформенных значков исходного InMine glyph_E2.png.
+# Эта страница используется в одном объединённом паке и работает на ПК и телефоне.
+platform_glyph_layout: inmine-e2-mobile-v5
+platform_icons:
+  apple: "U+E2F2"
+  playstation: "U+E2F3"
+  xbox: "U+E2F4"
+  windows: "U+E2F5"
+  android: "U+E2F6"
+
+groups:
+  default:
+    display_name: Игрок
+    color: f
+    permissions:
+      - chatperms.basic
+    chat_cooldown: 3
+
+  vip:
+    display_name: VIP
+    color: a
+    inherits: default
+    permissions:
+      - chatperms.vip
+    chat_cooldown: 3
+
+  premium:
+    display_name: Premium
+    color: b
+    inherits: vip
+    permissions:
+      - chatperms.premium
+    chat_cooldown: 2
+
+  delux:
+    display_name: Deluxe
+    color: '6'
+    inherits: premium
+    permissions:
+      - chatperms.delux
+    chat_cooldown: 1
+
+  knight:
+    display_name: Рыцарь
+    color: '3'
+    inherits: delux
+    permissions:
+      - chatperms.knight
+    chat_cooldown: 1
+
+  arxont:
+    display_name: Архонт
+    color: '9'
+    inherits: knight
+    permissions:
+      - chatperms.arxont
+    chat_cooldown: 0
+
+  elite:
+    display_name: Элита
+    color: d
+    inherits: arxont
+    permissions:
+      - chatperms.elite
+    chat_cooldown: 0
+
+  legend:
+    display_name: Легенда
+    color: e
+    inherits: elite
+    permissions:
+      - chatperms.legend
+    chat_cooldown: 0
+
+  vlastelin:
+    display_name: Властелин
+    color: '5'
+    inherits: legend
+    permissions:
+      - chatperms.vlastelin
+    chat_cooldown: 0
+
+  titan:
+    display_name: Титан
+    color: c
+    inherits: vlastelin
+    permissions:
+      - chatperms.titan
+    chat_cooldown: 0
+
+  demiurg:
+    display_name: Демиург
+    color: '4'
+    inherits: titan
+    permissions:
+      - chatperms.demiurg
+    chat_cooldown: 0
+
+  povelitel:
+    display_name: Повелитель
+    color: '5'
+    inherits: demiurg
+    permissions:
+      - chatperms.povelitel
+    chat_cooldown: 0
+
+messages:
+  no_permission: '§cУ вас нет прав для использования этой команды.'
+  player_not_found: '§cИгрок не найден.'
+  group_not_found: '§cГруппа не найдена.'
+  group_already_exists: '§cГруппа уже существует.'
+  permission_already_exists: '§cЭто право уже добавлено в группу.'
+  permission_not_found: '§cПраво не найдено в этой группе.'
+  group_created: '§aГруппа §6{GROUP} §aбыла успешно создана.'
+  group_removed: '§aГруппа §6{GROUP} §aбыла удалена.'
+  player_group_set: '§aИгроку §b{PLAYER} §aустановлена группа §6{GROUP}.'
+  permission_added: '§aПраво §b{PERMISSION} §aдобавлено в группу §6{GROUP}.'
+  permission_removed: '§aПраво §b{PERMISSION} §aудалено из группы §6{GROUP}.'
+  faction_detected: '§aОбнаружен плагин на фракции: {PLUGIN}'
+  no_faction_detected: '§7Используется интеграция с AmyXClans.'
+  unknown_command: '§cНеизвестная команда: {COMMAND}. Используйте /cp help.'
+  chat_cooldown: '§cПодождите {SECONDS} сек. перед следующим сообщением.'
+  empty_chat_message: '§cПосле знака глобального чата напишите сообщение.'
+  invalid_duration: '§cНеверный формат времени. Примеры: 1m, 5h, 1d, 1w.'
+  tempgroup_expired: '§aСрок временной группы §6{GROUP} §aистёк.'
+
+# Плейсхолдеры для global_chat_format/global_nametag_format:
+# {PLATFORM} / {PLATFORM_ICON} — значок платформы
+# {PLATFORM_NAME}, {PLATFORM_KEY}, {PLATFORM_ID}, {DEVICE_MODEL}
+# {GROUP} / {PRIVILEGE} — цветная привилегия в скобках
+# {GROUP_NAME} / {PRIVILEGE_NAME} — название без скобок
+# {GROUP_COLOR}/{PRIVILEGE_COLOR} — символ цвета, например a
+# {GROUP_COLOR_CODE}/{PRIVILEGE_COLOR_CODE} — полный код цвета, например §a
+# {CLAN} / {CLAN_TAG} — белый клан в скобках; пусто без клана
+# {CLAN_NAME} — название клана без скобок
+# {PLAYER}, {MESSAGE}, {WORLD}, {HEALTH}, {FACTION}

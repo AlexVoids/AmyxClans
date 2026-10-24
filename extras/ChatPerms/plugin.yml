@@ -1,0 +1,70 @@
+name: ChatPerms
+main: ChatPerms\Main
+version: 1.5.6
+api: 5.0.0
+description: Права, локальный/глобальный чат, nametag и временные сообщения над игроком для PM5
+author: MilkAndCookiz / AmyXCraft integration
+softdepend:
+  - AmyXClans
+
+commands:
+  cp:
+    description: Управление группами и правами ChatPerms
+    permission: chatperms.command
+    aliases: [chatperms]
+  amyxglyph:
+    description: Проверка пяти значков платформы из AmyX resource pack
+    permission: chatperms.command.glyphtest
+  amyxplatform:
+    description: Проверка DeviceOS и значка платформы игрока
+    permission: chatperms.command.platform
+
+permissions:
+  chatperms.command:
+    description: Основной доступ к команде ChatPerms
+    default: op
+  chatperms.command.setgroup:
+    description: Назначать игрокам группы
+    default: op
+  chatperms.command.creategroup:
+    description: Создавать группы
+    default: op
+  chatperms.command.removegroup:
+    description: Удалять группы
+    default: op
+  chatperms.command.addgroupperm:
+    description: Добавлять права группам
+    default: op
+  chatperms.command.removegroupperm:
+    description: Удалять права у групп
+    default: op
+  chatperms.command.listgroups:
+    description: Смотреть список групп
+    default: op
+  chatperms.command.checkplayer:
+    description: Проверять группу и права игрока
+    default: op
+  chatperms.command.platform:
+    description: Проверять DeviceOS и значок платформы
+    default: true
+  chatperms.command.glyphtest:
+    description: Проверять таблицу glyph_E2.png
+    default: true
+  chatperms.command.stats:
+    description: Смотреть статистику чата
+    default: op
+  chatperms.command.tempgroup:
+    description: Выдавать временную группу
+    default: op
+  chatperms.command.tempgroupcheck:
+    description: Проверять временную группу
+    default: op
+  chatperms.group.default:
+    description: Стандартная группа
+    default: true
+  chatperms.group.vip:
+    description: VIP-группа
+    default: false
+  chatperms.group.admin:
+    description: Административная группа
+    default: op
