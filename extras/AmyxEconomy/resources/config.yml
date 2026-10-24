@@ -1,0 +1,14 @@
+# AmyxEconomy
+currency-name: "монет"
+currency-symbol: "⛃"
+thousands-separator: "."
+starting-balance: 0
+maximum-balance: 9000000000000
+minimum-payment: 1
+maximum-payment: 1000000000000
+top-per-page: 10
+
+messages:
+  prefix: "§l§dAmyX§fEconomy §8» §r"
+  no-permission: "§cУ вас нет прав на эту команду."
+  player-only: "§cЭта команда доступна только игроку."

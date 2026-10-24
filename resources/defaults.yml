@@ -1,0 +1,70 @@
+minimum-playtime-seconds: 1200
+role-name-max-length: 24
+history-limit: 10000
+style:
+  accent: '§5'
+  text: '§f'
+  prefix: '§5[Кланы] §f'
+features:
+  regions: true
+  wars: true
+  siege: true
+  chat: true
+levels:
+  maximum: 5
+  xp-per-level: 1000
+  win-xp: 300
+  kill-xp: 25
+  participation-xp: 20
+  activity-xp: 50
+  activity-seconds: 3600
+  kill-pair-cooldown: 300
+ranking:
+  initial: 0
+  allow-negative: false
+  join: 2
+  win: 40
+  loss: -40
+  technical-loss: -30
+  draw: 0
+region-levels:
+  1: {count: 3, size: 25}
+  2: {count: 4, size: 30}
+  3: {count: 6, size: 35}
+  4: {count: 8, size: 40}
+  5: {count: 10, size: 50}
+region-expansion-prices:
+  2: 10000
+  4: 20000
+  6: 40000
+  8: 80000
+  10: 160000
+regions:
+  op-bypass: true
+  allowed-worlds: []
+  denied-worlds: []
+  world-borders: {}
+chat:
+  format: '&5[Клан] &5({role}) &f{player}: &f{message}'
+  cooldown-seconds: 2
+war:
+  minimum-level: 2
+  minimum-regions: 4
+  team-sizes: [3, 5, 10, 15]
+  request-seconds: 86400
+  collect-seconds: 600
+  prepare-seconds: 300
+  fight-seconds: 1800
+  siege-seconds: 1800
+  siege-timeout: defenders
+  both-incomplete: technical-both
+  technical-fine: 10000
+  kill-same-ip-xp: false
+  totem-slowness: 1
+  siege-transfer-region: false
+snapshot:
+  blocks-per-tick: 2048
+  maximum-volume: 2000000
+forms:
+  title-prefix: '§5AmyxCraft §f| '
+  page-size: 10

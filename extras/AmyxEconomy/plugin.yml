@@ -1,0 +1,46 @@
+name: AmyxEconomy
+main: Amyx\Economy\Main
+version: 1.0.2
+api: 5.0.0
+author: AmyXCraft
+description: Русская экономика AmyXCraft с переводами, топами, API и плейсхолдерами.
+
+commands:
+  balance:
+    description: Показать свой баланс или баланс другого игрока
+    usage: "/balance [игрок]"
+    aliases: [bal, coins]
+    permission: amyx.economy.command.balance
+  pay:
+    description: Перевести монеты другому игроку
+    usage: "/pay <игрок> <сумма>"
+    permission: amyx.economy.command.pay
+  money:
+    description: Главное меню команд экономики
+    usage: "/money [баланс|pay|top|placeholders]"
+    aliases: [monety]
+    permission: amyx.economy.command.money
+  baltop:
+    description: Топ игроков по балансу
+    usage: "/baltop [страница]"
+    aliases: [moneytop, topmoney]
+    permission: amyx.economy.command.top
+  economy:
+    description: Управление экономикой
+    usage: "/economy <set|add|take|reset|info> <игрок> [сумма]"
+    aliases: [eco]
+    permission: amyx.economy.command.admin
+
+permissions:
+  amyx.economy.command.balance:
+    default: true
+  amyx.economy.command.pay:
+    default: true
+  amyx.economy.command.money:
+    default: true
+  amyx.economy.command.top:
+    default: true
+  amyx.economy.command.admin:
+    default: op
+  amyx.economy.balance.others:
+    default: true

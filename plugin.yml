@@ -1,0 +1,21 @@
+name: AmyXClans
+main: AmyXClans\Main
+version: 2.0.0
+api: 5.0.0
+author: AlexVoids
+description: Кланы AmyxCraft, регионы, казна и два режима битв
+depend: [AmyxEconomy, FormAPI]
+softdepend: [AmyxHologram, AmyxStats, SimpleAuth, AmyBuilderGuard]
+commands:
+  clan:
+    description: Меню клана
+    permission: amyxclans.command
+    aliases: [c, clans]
+  clanadmin:
+    description: Настройка кланов и арен (только OP)
+    permission: amyxclans.admin
+permissions:
+  amyxclans.command:
+    default: true
+  amyxclans.admin:
+    default: op
