@@ -1,6 +1,6 @@
 name: AmyXClans
 main: AmyXClans\Main
-version: 2.0.0
+version: 2.0.1
 api: 5.28.0
 author: AlexVoids
 description: Кланы AmyxCraft, регионы, казна и два режима битв
@@ -11,11 +11,16 @@ commands:
     description: Меню клана
     permission: amyxclans.command
     aliases: [c, clans]
+  clanhome:
+    description: Телепортация на клановую точку
+    permission: amyxclans.command.home
   clanadmin:
     description: Настройка кланов и арен (только OP)
     permission: amyxclans.admin
 permissions:
   amyxclans.command:
+    default: true
+  amyxclans.command.home:
     default: true
   amyxclans.admin:
     default: op

@@ -22,7 +22,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="${GITHUB_REF_NAME}"
-          if [[ "$tag" != v* ]]; then tag="v2.0.0"; fi
+          if [[ "$tag" != v* ]]; then tag="v2.0.1"; fi
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" release/* --clobber
           else

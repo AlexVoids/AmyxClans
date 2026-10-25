@@ -1,6 +1,6 @@
 name: AmyxCommandAccess
 main: Amyx\CommandAccess\Main
-version: 1.0.1
+version: 1.0.2
 api: 5.0.0
 author: AlexVoids
 description: Белый список команд игроков для набора плагинов Amyx

@@ -33,7 +33,7 @@ home-limits:
 home-limit-upgrade-costs:
   '5': 5000
   '10': 10000
-max-channels: 3
+max-channels: 5
 clan-icon-cost: 10000
 # Смена названия в магазине клана, оплата из казны.
 clan-rename-cost: 5000

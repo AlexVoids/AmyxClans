@@ -5,7 +5,7 @@ use pocketmine\player\Player;
 trait AdminMenus{
     public function admin(Player $p) : void{
         if(!$this->p->isOperator($p) || !$this->p->authenticated($p))throw new \DomainException('Только OP.');$buttons=[];
-        foreach($this->p->arenas->all() as $id=>$a)$buttons[]=['Арена §5'.$id,fn()=> $this->arenaEditor($p,$id)];
+        foreach($this->p->arenas->all() as $id=>$a){$arenaId=(string)$id;$buttons[]=['Арена §5'.$arenaId,fn()=> $this->arenaEditor($p,$arenaId)];}
         $buttons[]=['Создать арену',fn()=> $this->custom($p,'Новая арена',[['input','ID арены','Латиница, цифры, _ или -']],function($d)use($p):void{$id=trim($d[0]);if($this->p->arenas->get($id)!==null)throw new \DomainException('Арена существует.');$this->p->arenas->update($p,$id,static function(array &$a):void{});$this->arenaEditor($p,$id);},fn()=> $this->admin($p),true)];
         foreach($this->p->matches->all() as $id=>$m)if(!in_array($m['phase'],['finished','aborted'],true))$buttons[]=['Прервать битву §5'.substr($id,0,8),fn()=> $this->confirm($p,'Прервать битву','Карта будет восстановлена; новых наград не будет.',function()use($p,$id):void{if(!$this->p->isOperator($p) || !$this->p->authenticated($p))throw new \DomainException('Только OP.');$this->p->matches->abort($id,'Остановлена оператором '.$p->getName());$this->admin($p);},fn()=> $this->admin($p),true)];
         $this->menu($p,'Настройка арен · OP','Настройки и технические операции доступны только операторам сервера.',$buttons,null,true);
@@ -39,7 +39,7 @@ trait AdminMenus{
         },fn()=> $this->arenaEditor($p,$id),true)];
         $buttons[]=['Привязать регион защитника',function()use($p,$change,$id):void{
             $ids=[];$labels=[];
-            foreach($this->p->db->clans as $cid=>$clan)foreach($clan['regions'] as $rid=>$region){$ids[]=['clan'=>$cid,'id'=>$rid];$labels[]=$clan['name'].' / '.$region['name'];}
+            foreach($this->p->db->clans as $cid=>$clan)foreach($clan['regions'] as $rid=>$region){$ids[]=['clan'=>(string)$cid,'id'=>(string)$rid];$labels[]=$clan['name'].' / '.$region['name'];}
             if($ids===[])throw new \DomainException('Клановых регионов нет.');
             $this->custom($p,'Осада территории',[['label','Границы станут равны всему региону, включая полную высоту. Затем заново настройте старты, стену и сундуки.'],['dropdown','Регион',$labels]],function($d)use($change,$ids):void{
                 $binding=$ids[$d[1]];$region=$this->p->db->clans[$binding['clan']]['regions'][$binding['id']]??null;if($region===null)throw new \DomainException('Регион удалён.');$world=$this->p->arenas->world($region['world']);if($world===null)throw new \DomainException('Мир недоступен.');

@@ -26,6 +26,7 @@ final class ArenaManager{
         $data=yaml_parse_file($this->p->getDataFolder().'arenas.yml');
         if(!is_array($data) || !is_array($data['arenas']??null)) throw new \DomainException('Некорректный arenas.yml');
         $this->arenas=$data['arenas'];
+        foreach($this->arenas as $id=>&$arena){if(!is_array($arena))throw new \DomainException('Некорректная арена '.(string)$id);$arena['id']=(string)$id;if(isset($arena['region']) && is_array($arena['region']))foreach(['clan','id'] as $key)$arena['region'][$key]=(string)($arena['region'][$key]??'');}unset($arena);
     }
     public function all() : array{return $this->arenas;}
     public function get(string $id) : ?array{return $this->arenas[$id]??null;}
@@ -68,7 +69,7 @@ final class ArenaManager{
         $other=$axis==='x'?'Z':'X';if($wall['min'.$other]!==$bounds['min'.$other] || $wall['max'.$other]!==$bounds['max'.$other])throw new \DomainException('Стена должна перекрывать всю ширину боевой зоны.');
         if($wall['min'.$key]<=$bounds['min'.$key] || $wall['min'.$key]>=$bounds['max'.$key])throw new \DomainException('Стена должна разделять арену.');
         foreach($this->p->db->clans as $cid=>$clan)foreach($clan['regions'] as $rid=>$region)if(Rules::overlaps($bounds,$region)){
-            if(($a['region']['clan']??null)!==$cid || ($a['region']['id']??null)!==$rid)throw new \DomainException('Арена пересекается с не привязанным к ней клановым регионом.');
+            if(($a['region']['clan']??null)!==(string)$cid || ($a['region']['id']??null)!==(string)$rid)throw new \DomainException('Арена пересекается с не привязанным к ней клановым регионом.');
             if($bounds['minX']!==$region['minX'] || $bounds['maxX']!==$region['maxX'] || $bounds['minZ']!==$region['minZ'] || $bounds['maxZ']!==$region['maxZ'] || $bounds['minY']!==$w->getMinY() || $bounds['maxY']!==$w->getMaxY()-1)throw new \DomainException('Осада региона должна сохранять всю его площадь и высоту.');
         }
         if(isset($a['region'])){

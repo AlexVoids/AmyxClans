@@ -450,6 +450,11 @@ final class Main extends PluginBase implements Listener{
         return $block;
     }
 
+    private function replacementAllowed(Player $player, World $world, int $x, int $y, int $z, Block $old, Block $new) : bool{
+        if($old->getStateId()===$new->getStateId())return true;
+        if($old->getTypeId()!==BlockTypeIds::AIR && !$this->actionAllowed($player,'break',$world->getFolderName(),$x,$y,$z))return false;
+        return $new->getTypeId()===BlockTypeIds::AIR || $this->actionAllowed($player,'place',$world->getFolderName(),$x,$y,$z);
+    }
     /**
      * @param iterable<array{0:int,1:int,2:int}> $positions
      * @param callable(Block,int,int,int):?Block $resolver
@@ -471,8 +476,7 @@ final class Main extends PluginBase implements Listener{
                 if($new === null || $old->getStateId() === $new->getStateId()){
                     continue;
                 }
-                $guardAction = $new->getTypeId() === BlockTypeIds::AIR ? 'break' : 'place';
-                if(!$this->actionAllowed($player, $guardAction, $world->getFolderName(), $x, $y, $z)){
+                if(!$this->replacementAllowed($player,$world,$x,$y,$z,$old,$new)){
                     continue;
                 }
                 if($changed >= $this->operationLimit($player)){
@@ -652,8 +656,7 @@ final class Main extends PluginBase implements Listener{
                 continue;
             }
             $old = $world->getBlockAt($x, $y, $z);
-            $guardAction = $new->getTypeId() === BlockTypeIds::AIR ? 'break' : 'place';
-            if(!$this->actionAllowed($player, $guardAction, $world->getFolderName(), $x, $y, $z)){
+            if(!$this->replacementAllowed($player,$world,$x,$y,$z,$old,$new)){
                 continue;
             }
             if($old->getStateId() !== $state){
@@ -759,8 +762,9 @@ final class Main extends PluginBase implements Listener{
         foreach($entries as [$worldName, $x, $y, $z, $oldState, $newState]){
             $world = $this->getServer()->getWorldManager()->getWorldByName($worldName);
             if($world === null){ continue; }
-            if(!$this->actionAllowed($player,'place',$worldName,$x,$y,$z))continue;
-            $world->setBlockAt($x, $y, $z, $registry->fromStateId($redo ? $newState : $oldState), $this->updateBlocks);
+            $targetBlock=$registry->fromStateId($redo ? $newState : $oldState);
+            if(!$this->replacementAllowed($player,$world,$x,$y,$z,$world->getBlockAt($x,$y,$z),$targetBlock))continue;
+            $world->setBlockAt($x, $y, $z, $targetBlock, $this->updateBlocks);
             ++$changed;
         }
         $player->sendMessage(($redo ? '§aПовторено: §f' : '§aОтменено: §f') . $changed . ' блоков.');
@@ -1523,12 +1527,12 @@ final class Main extends PluginBase implements Listener{
         return $player->hasPermission('amybg.bypass');
     }
 
-    public function actionAllowed(Player $player, string $action, string $world, int $x, int $y, int $z) : bool{
+    public function actionAllowed(Player $player, string $action, string $world, int $x, int $y, int $z, bool $checkClan = true) : bool{
         // WorldEdit performs direct world writes, so ordinary block events are not sufficient.
         $clans=$this->getServer()->getPluginManager()->getPlugin('AmyXClans');
         $target=$this->getServer()->getWorldManager()->getWorldByName($world);
-        if($clans!==null && $clans->isEnabled() && $target!==null && method_exists($clans,'canBuildAt') && in_array($action,['break','place','build','container','interact'],true)){
-            if(!$clans->canBuildAt($player,new \pocketmine\world\Position($x,$y,$z,$target))) return false;
+        if($checkClan && $clans!==null && $clans->isEnabled() && $target!==null && method_exists($clans,'canBuildAt') && in_array($action,['break','place','build','container','interact','entity-interact'],true)){
+            if(!$clans->canBuildAt($player,new \pocketmine\world\Position($x,$y,$z,$target),match($action){'container'=>'containers','entity-interact'=>'entities',default=>$action})) return false;
         }
         if($this->hasBypass($player)){
             return true;
@@ -1660,7 +1664,7 @@ final class Main extends PluginBase implements Listener{
             $world = $worldObject->getFolderName();
             $tile = $worldObject->getTileAt($pos->getFloorX(), $pos->getFloorY(), $pos->getFloorZ());
             $flag = $tile instanceof Container ? 'container' : $this->interactionFlag($block);
-            if(!$this->actionAllowed($player, $flag, $world, $pos->getFloorX(), $pos->getFloorY(), $pos->getFloorZ())){
+            if(!$this->actionAllowed($player, $flag, $world, $pos->getFloorX(), $pos->getFloorY(), $pos->getFloorZ(), false)){
                 $event->cancel();
                 $this->deny($player, $world, $pos->getFloorX(), $pos->getFloorY(), $pos->getFloorZ());
             }

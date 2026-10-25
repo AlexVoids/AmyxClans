@@ -20,7 +20,7 @@ final class Protection implements Listener{
     public function __construct(private Main $p){}
     private function protected(Position $p) : bool{return $this->p->regions->at($p)!==null || $this->p->matches->at($p)!==null;}
     /** @priority HIGHEST */
-    public function break(BlockBreakEvent $e) : void{if(!$this->p->canBuildAt($e->getPlayer(),$e->getBlock()->getPosition()))$e->cancel();
+    public function break(BlockBreakEvent $e) : void{if(!$this->p->canBuildAt($e->getPlayer(),$e->getBlock()->getPosition(),'break'))$e->cancel();
         elseif($this->p->matches->at($e->getBlock()->getPosition())!==null){
             $pos=$e->getBlock()->getPosition();$tile=$pos->getWorld()->getTile($pos);
             if($tile instanceof \pocketmine\block\tile\Container)$e->cancel();
@@ -28,12 +28,18 @@ final class Protection implements Listener{
         }}
     /** @priority HIGHEST */
     public function place(BlockPlaceEvent $e) : void{
-        foreach($e->getTransaction()->getBlocks() as [$x,$y,$z,$block])if(!$this->p->canBuildAt($e->getPlayer(),new Position($x,$y,$z,$e->getBlockAgainst()->getPosition()->getWorld()))){$e->cancel();return;}
+        foreach($e->getTransaction()->getBlocks() as [$x,$y,$z,$block])if(!$this->p->canBuildAt($e->getPlayer(),new Position($x,$y,$z,$e->getBlockAgainst()->getPosition()->getWorld()),'place')){$e->cancel();return;}
     }
     /** @priority HIGHEST */
     public function interact(PlayerInteractEvent $e) : void{
         $p=$e->getPlayer();$pos=$e->getBlock()->getPosition();
-        if(!$this->p->regions->canAccess($p,$pos)){$e->cancel();return;}
+        if($e->getAction()===PlayerInteractEvent::LEFT_CLICK_BLOCK){
+            if(!$this->p->regions->canAccess($p,$pos,'break')){$e->cancel();return;}
+        }else{
+            $action=$this->containerAction($pos);
+            if(!$this->p->regions->canAccess($p,$pos,$action))$e->setUseBlock(false);
+            if(!$this->p->regions->canAccess($p,$pos,'interact'))$e->setUseItem(false);
+        }
         $mid=$this->p->matches->at($pos);
         if($mid!==null){
             $m=$this->p->matches->all()[$mid];$own=$this->p->matches->playerMatch($p,true);
@@ -45,26 +51,47 @@ final class Protection implements Listener{
         }
         if($this->p->totems->marker($e->getItem())!==null)$e->cancel();
     }
+    private function containerAction(Position $pos) : string{
+        return $pos->getWorld()->getTile($pos) instanceof \pocketmine\block\tile\Container || $pos->getWorld()->getBlock($pos) instanceof \pocketmine\block\EnderChest ? 'containers':'interact';
+    }
+    /** @return Position[] Both halves of a double chest must satisfy region protection. */
+    private function inventoryPositions(\pocketmine\inventory\Inventory $inventory) : array{
+        if($inventory instanceof \pocketmine\block\inventory\DoubleChestInventory)return [$inventory->getLeftSide()->getHolder(),$inventory->getRightSide()->getHolder()];
+        if(method_exists($inventory,'getHolder')){$pos=$inventory->getHolder();if($pos instanceof Position)return [$pos];}
+        return [];
+    }
+    private function inventoryAllowed(Player $player,\pocketmine\inventory\Inventory $inventory) : bool{
+        foreach($this->inventoryPositions($inventory) as $pos){
+            if(!$this->p->regions->canAccess($player,$pos,$this->containerAction($pos)) || $this->p->matches->at($pos)!==null)return false;
+        }
+        return true;
+    }
     /** @priority HIGHEST */
     public function open(InventoryOpenEvent $e) : void{
-        $inventory=$e->getInventory();
-        if(method_exists($inventory,'getHolder')){
-            $holder=$inventory->getHolder();if($holder instanceof Position){
-                if(!$this->p->regions->canAccess($e->getPlayer(),$holder)){$e->cancel();return;}
-                $mid=$this->p->matches->at($holder);
-                if($mid!==null)$e->cancel(); // map containers are frozen, preventing snapshot/loot duplication
-            }
-        }
+        if(!$this->inventoryAllowed($e->getPlayer(),$e->getInventory()))$e->cancel();
     }
     /** @priority HIGHEST */
     public function transaction(InventoryTransactionEvent $e) : void{
         foreach($e->getTransaction()->getActions() as $action){
             if($this->p->totems->marker($action->getSourceItem())!==null || $this->p->totems->marker($action->getTargetItem())!==null){$e->cancel();return;}
-            if($action instanceof SlotChangeAction && method_exists($action->getInventory(),'getHolder')){
-                $pos=$action->getInventory()->getHolder();if($pos instanceof Position && !$this->p->regions->canAccess($e->getTransaction()->getSource(),$pos)){$e->cancel();return;}
-                if($pos instanceof Position && ($mid=$this->p->matches->at($pos))!==null){$m=$this->p->matches->all()[$mid];if($mid!==null){$e->cancel();return;}}
-            }
+            if($action instanceof SlotChangeAction && !$this->inventoryAllowed($e->getTransaction()->getSource(),$action->getInventory())){$e->cancel();return;}
         }
+    }
+    /** @priority HIGHEST */
+    public function entityInteract(\pocketmine\event\player\PlayerEntityInteractEvent $e) : void{
+        $pos=$e->getEntity()->getPosition();
+        if(!$this->p->regions->canAccess($e->getPlayer(),$pos,'entities')){$e->cancel();return;}
+        $mid=$this->p->matches->at($pos);
+        if($mid!==null && ($this->p->matches->playerMatch($e->getPlayer(),true)!==$mid || $this->p->matches->all()[$mid]['phase']!=='active'))$e->cancel();
+    }
+    /** @priority HIGHEST */
+    public function bucketEmpty(\pocketmine\event\player\PlayerBucketEmptyEvent $e) : void{
+        // PM passes the replacement block (destination) as getBlockClicked().
+        if(!$this->p->canBuildAt($e->getPlayer(),$e->getBlockClicked()->getPosition(),'place'))$e->cancel();
+    }
+    /** @priority HIGHEST */
+    public function bucketFill(\pocketmine\event\player\PlayerBucketFillEvent $e) : void{
+        if(!$this->p->canBuildAt($e->getPlayer(),$e->getBlockClicked()->getSide($e->getBlockFace() ^ 1)->getPosition(),'break'))$e->cancel();
     }
     /** @priority HIGHEST */
     public function move(PlayerMoveEvent $e) : void{

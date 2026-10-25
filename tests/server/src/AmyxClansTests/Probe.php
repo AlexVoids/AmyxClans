@@ -24,6 +24,11 @@ final class Probe extends PluginBase{
     private static function ok(bool $ok,string $message='Assertion failed'):void{if(!$ok)throw new \RuntimeException($message);}
     private static function denied(callable $fn):void{try{$fn();}catch(\DomainException){return;}throw new \RuntimeException('Action unexpectedly allowed');}
     private function test(string $name,callable $fn):void{try{$fn();++$this->passed;$this->getLogger()->info('PASS '.$name);}catch(\Throwable $e){$this->failures[$name]=$e->getMessage();$this->getLogger()->logException($e);}}
+    private function choose(SyntheticPlayer $p,string $label):void{
+        $form=end($p->forms);$json=$form->jsonSerialize();
+        foreach($json['buttons']??[] as $i=>$button)if(str_contains(\pocketmine\utils\TextFormat::clean($button['text']),$label)){$form->handleResponse($p,$i);return;}
+        throw new \RuntimeException('Missing form button: '.$label);
+    }
     private function drain():void{for($i=0;$i<500;++$i)$this->clans->snapshots->tick();}
     private function match(string $mode='arena',bool $full=true):string{
         $this->clans->matches->request($this->players['Alice'],$this->ids['b'],$mode,3);
@@ -104,6 +109,76 @@ final class Probe extends PluginBase{
                 foreach($this->ids as $id){$c->db->clans[$id]['level']=2;$c->db->clans[$id]['bank']=3000;for($i=count($c->db->clans[$id]['regions']);$i<4;++$i)$c->db->clans[$id]['regions']['fixture'.$i]=['name'=>'Fixture'.$i,'world'=>$w->getFolderName(),'centerX'=>1000+$i*100+($id===$this->ids['a']?0:1000),'centerZ'=>1000,'baseSize'=>30,'bonus'=>0,'roles'=>[]]+Rules::bounds(1000+$i*100+($id===$this->ids['a']?0:1000),1000,30);}
                 $c->db->save();
             });
+            $this->test('numeric arena 11 opens edits saves reloads and deletes via FormAPI',function()use($c):void{
+                $p=$this->players['Alice'];$c->arenas->update($p,'11',static function(array &$a):void{});
+                $c->menus->admin($p);$this->choose($p,'Арена 11');self::ok(str_contains(end($p->forms)->jsonSerialize()['title'],'Арена 11'));
+                $this->choose($p,'Название и режимы');end($p->forms)->handleResponse($p,['Числовая арена',true,false,0]);
+                $c->arenas->reload();self::ok($c->arenas->get('11')['name']==='Числовая арена' && $c->arenas->get('11')['id']==='11');
+                $c->menus->admin($p);$this->choose($p,'Арена 11');$this->choose($p,'Удалить арену');end($p->forms)->handleResponse($p,true);self::ok($c->arenas->get('11')===null);
+                $cid=$this->ids['a'];$region=reset($c->db->clans[$cid]['regions']);$region['name']='Числовой регион';$region=array_replace($region,['minX'=>700,'maxX'=>710,'minZ'=>700,'maxZ'=>710]);$c->db->clans[$cid]['regions']['11']=$region;
+                $c->menus->main($p);$this->choose($p,'Регионы');$this->choose($p,'Числовой регион');self::ok(str_contains(end($p->forms)->jsonSerialize()['title'],'Числовой регион'));
+                self::ok($c->regions->at(new Position(705,100,705,$p->getWorld()))['id']==='11');unset($c->db->clans[$cid]['regions']['11']);$c->db->save();
+            });
+            $this->test('clanhome command and menu share destination and deny missing home',function()use($c,$w):void{
+                $p=$this->players['Ally'];$id=$this->ids['a'];self::denied(fn()=> $c->teleportClanHome($p));self::denied(fn()=> $c->teleportClanHome($this->players['Stranger']));
+                $c->db->clans[$id]['home']=['world'=>$w->getFolderName(),'x'=>108,'y'=>100,'z'=>108];
+                $event=new \pocketmine\event\server\CommandEvent($p,'clanhome');$event->call();self::ok($event->isCancelled() && $p->getPosition()->x===108.0 && $p->getPosition()->z===108.0);
+                $c->matches->teleport($p,['world'=>$w->getFolderName(),'x'=>105,'y'=>100,'z'=>105]);$c->menus->main($p);$this->choose($p,'Клановая точка');$this->choose($p,'Телепортироваться');self::ok($p->getPosition()->x===108.0);
+                $access=$this->getServer()->getPluginManager()->getPlugin('AmyxCommandAccess');if($access!==null){self::ok($access->resolve('clanhome')?->getName()==='clanhome');self::ok(in_array('clanhome',$access->getConfig()->get('allowed-commands'),true));}
+                $c->db->clans[$id]['home']=null;
+            });
+            $this->test('legacy region booleans keep permissions and new criteria are independent',function()use($c):void{
+                $id=$this->ids['a'];$rid=array_key_first($c->db->clans[$id]['regions']);$p=$this->players['Ally'];$pos=new Position(500,100,500,$p->getWorld());
+                foreach([true,false] as $value){$c->db->clans[$id]['regions'][$rid]['roles']['member']=$value;foreach(\AmyXClans\region\RegionService::ACTIONS as $key=>$_)self::ok($c->regions->canAccess($p,$pos,$key)===$value);}
+                $settings=['break'=>true,'place'=>false,'containers'=>true,'interact'=>false,'entities'=>false];$c->regions->setRoleAccess($this->players['Alice'],$rid,'member',$settings);
+                foreach($settings as $key=>$value)self::ok($c->regions->canAccess($p,$pos,$key)===$value);self::ok(!$c->regions->canAccess($this->players['Stranger'],$pos,'containers'));
+                self::denied(fn()=> $c->regions->setRoleAccess($this->players['Ally'],$rid,'member',array_fill_keys(array_keys($settings),true)));
+                self::denied(fn()=> $c->regions->setRoleAccess($this->players['Alice'],$rid,'leader',$settings));
+                self::ok(!$c->regions->canAccess($p,$pos,'unknown'));
+            });
+            $this->test('native break place interaction and inventory events enforce separate criteria',function()use($c,$w):void{
+                $p=$this->players['Ally'];$w->setChunk(31,31,new \pocketmine\world\format\Chunk([],true));$w->setBlockAt(500,100,500,B::STONE());$w->setBlockAt(501,100,500,B::CHEST());
+                $block=$w->getBlockAt(500,100,500);$chest=$w->getTileAt(501,100,500)->getInventory();$item=I::AIR();
+                $break=new \pocketmine\event\block\BlockBreakEvent($p,$block,$item);$break->call();self::ok(!$break->isCancelled(),'Breaking incorrectly requires place permission');
+                $tx=new \pocketmine\world\BlockTransaction($w);$tx->addBlockAt(503,100,500,B::STONE());$place=new \pocketmine\event\block\BlockPlaceEvent($p,$tx,$block,$item);$place->call();self::ok($place->isCancelled());
+                $interact=new \pocketmine\event\player\PlayerInteractEvent($p,$item,$block,null,1);$interact->call();self::ok(!$interact->useBlock() || $interact->isCancelled());
+                $open=new \pocketmine\event\inventory\InventoryOpenEvent($chest,$p);$open->call();self::ok(!$open->isCancelled(),'Container access incorrectly requires build permission');
+                $id=$this->ids['a'];$rid=array_key_first($c->db->clans[$id]['regions']);$c->regions->setRoleAccess($this->players['Alice'],$rid,'member',['break'=>false,'place'=>true,'containers'=>false,'interact'=>true,'entities'=>true]);
+                $open=new \pocketmine\event\inventory\InventoryOpenEvent($chest,$p);$open->call();self::ok($open->isCancelled());
+                $transfer=new InventoryTransaction($p,[new SlotChangeAction($chest,0,I::AIR(),I::DIAMOND()),new SlotChangeAction($p->getInventory(),0,I::DIAMOND(),I::AIR())]);$inventoryEvent=new InventoryTransactionEvent($transfer);$inventoryEvent->call();self::ok($inventoryEvent->isCancelled());
+                $break=new \pocketmine\event\block\BlockBreakEvent($p,$block,$item);$break->call();self::ok($break->isCancelled());$place=new \pocketmine\event\block\BlockPlaceEvent($p,$tx,$block,$item);$place->call();self::ok(!$place->isCancelled());
+                $guard=$this->getServer()->getPluginManager()->getPlugin('AmyBuilderGuard');if($guard!==null){self::ok(!$guard->actionAllowed($p,'break',$w->getFolderName(),500,100,500));self::ok($guard->actionAllowed($p,'place',$w->getFolderName(),500,100,500));}
+            });
+            $this->test('placement is independent of block use and double chest boundary cannot bypass ACL',function()use($c,$w):void{
+                $p=$this->players['Ally'];$actor=$this->players['Alice'];$id=$this->ids['a'];$rid=array_key_first($c->db->clans[$id]['regions']);$settings=['break'=>false,'place'=>true,'containers'=>false,'interact'=>false,'entities'=>false];$c->regions->setRoleAccess($actor,$rid,'member',$settings);
+                $block=$w->getBlockAt(500,100,500);$event=new \pocketmine\event\player\PlayerInteractEvent($p,B::STONE()->asItem(),$block,null,1);$event->call();self::ok(!$event->isCancelled() && !$event->useBlock(),'Place permission must work without generic interaction permission');
+                $minX=$c->db->clans[$id]['regions'][$rid]['minX'];$left=new \pocketmine\block\inventory\ChestInventory(new Position($minX-1,100,500,$w));$right=new \pocketmine\block\inventory\ChestInventory(new Position($minX,100,500,$w));$w->loadChunk($minX>>4,31);
+                $w->setChunk($minX>>4,31,new \pocketmine\world\format\Chunk([],true));$w->setBlockAt($minX,100,500,B::CHEST());$double=new \pocketmine\block\inventory\DoubleChestInventory($left,$right);
+                $open=new \pocketmine\event\inventory\InventoryOpenEvent($double,$p);$open->call();self::ok($open->isCancelled(),'Unprotected half of double chest bypassed the protected half');
+                $fill=new \pocketmine\event\player\PlayerBucketFillEvent($p,$block,1,I::BUCKET(),I::WATER_BUCKET());$fill->call();self::ok($fill->isCancelled());
+                $empty=new \pocketmine\event\player\PlayerBucketEmptyEvent($p,$block,1,I::WATER_BUCKET(),I::BUCKET());$empty->call();self::ok(!$empty->isCancelled());
+                $settings['place']=false;$c->regions->setRoleAccess($actor,$rid,'member',$settings);
+                $destination=$w->getBlockAt($minX,100,500);$edgeEmpty=new \pocketmine\event\player\PlayerBucketEmptyEvent($p,$destination,4,I::WATER_BUCKET(),I::BUCKET());$edgeEmpty->call();self::ok($edgeEmpty->isCancelled(),'Bucket destination was checked one block too far');
+                $outside=$w->getBlockAt($minX-1,100,500);$edgeFill=new \pocketmine\event\player\PlayerBucketFillEvent($p,$outside,4,I::BUCKET(),I::WATER_BUCKET());$edgeFill->call();self::ok($edgeFill->isCancelled(),'Bucket extraction source bypassed region boundary');
+            });
+            $this->test('WorldEdit set cannot destroy occupied blocks with only placement permission',function()use($c,$w):void{
+                $guard=$this->getServer()->getPluginManager()->getPlugin('AmyBuilderGuard');if($guard===null)return;
+                $p=$this->players['Ally'];$id=$this->ids['a'];$rid=array_key_first($c->db->clans[$id]['regions']);$c->regions->setRoleAccess($this->players['Alice'],$rid,'member',['break'=>false,'place'=>true,'containers'=>false,'interact'=>false,'entities'=>false]);
+                $sessions=(new \ReflectionProperty($guard,'sessions'))->getValue($guard);$selection=$sessions->getSelection($p->getName());$pos=new \pocketmine\math\Vector3(500,100,500);$selection->setPos1($pos,$w->getFolderName());$selection->setPos2($pos,$w->getFolderName());
+                $command=$this->getServer()->getCommandMap()->getCommand('amybg:set');self::ok($command!==null);$command->execute($p,'set',['diamond_block']);self::ok($w->getBlockAt(500,100,500)->getTypeId()===B::STONE()->getTypeId(),'WorldEdit replaced an existing block without break permission');
+                $pos=new \pocketmine\math\Vector3(503,100,500);$selection->setPos1($pos,$w->getFolderName());$selection->setPos2($pos,$w->getFolderName());$command->execute($p,'set',['diamond_block']);self::ok($w->getBlockAt(503,100,500)->getTypeId()===B::DIAMOND()->getTypeId(),'WorldEdit placement into air was denied');
+            });
+            $this->test('region form edits all five criteria and saved settings survive reload',function()use($c):void{
+                $p=$this->players['Alice'];$id=$this->ids['a'];$rid=array_key_first($c->db->clans[$id]['regions']);
+                $c->menus->main($p);$this->choose($p,'Регионы');$this->choose($p,'Первый');$this->choose($p,'Права ролей');$this->choose($p,'Участник');$form=end($p->forms);self::ok($form instanceof \jojoe77777\FormAPI\CustomForm && count($form->jsonSerialize()['content'])===5);
+                $form->handleResponse($p,[true,false,true,false,true]);$db=new Database($c->getDataFolder());self::ok($db->clans[$id]['regions'][$rid]['roles']['member']===['break'=>true,'place'=>false,'containers'=>true,'interact'=>false,'entities'=>true]);
+                $c->regions->acl($p,$rid,[]);
+            });
+            $this->test('channel limit upgrades existing 3 to 5 and rejects a sixth channel',function()use($c):void{
+                self::ok((int)$c->cfg('max-channels')===5,'Existing config was not upgraded');$p=$this->players['Alice'];$id=$this->ids['a'];
+                foreach(['первый','второй','третий','четвертый','пятый'] as $name){$c->menus->main($p);$this->choose($p,'Каналы и настройки');$this->choose($p,'Создать канал');$this->choose($p,'Изменить');end($p->forms)->handleResponse($p,[$name,1]);}
+                self::ok(count($c->db->clans[$id]['channels'])===5);self::ok(str_contains(end($p->messages),'Достигнут лимит каналов'));
+            });
             $this->test('WorldEdit hook and whitelist resolve the real clan provider',function()use($c,$w):void{
                 $guard=$this->getServer()->getPluginManager()->getPlugin('AmyBuilderGuard');
                 if($guard!==null)self::ok(!$guard->actionAllowed($this->players['Stranger'],'place',$w->getFolderName(),500,100,500),'WorldEdit bypassed a clan claim');
@@ -116,7 +191,7 @@ final class Probe extends PluginBase{
             $this->test('arena own inventory collection preparation movement boundary and timeout',function()use($c,$w):void{
                 $p=$this->players['Alice'];$p->getInventory()->setItem(7,I::DIAMOND_SWORD()->setCustomName('Own gear'));$mid=$this->match();$m=$c->matches->all()[$mid];self::ok($m['phase']==='preparing' && $p->getInventory()->getItem(7)->getCustomName()==='Own gear');
                 $from=$p->getLocation();$to=clone $from;$to->x+=1;$event=new PlayerMoveEvent($p,$from,$to);$event->call();self::ok($event->isCancelled());
-                self::ok(!$p->teleport(new Position(100,100,100,$w)),'External teleport allowed');$c->matches->tick($m['deadline']);self::ok($c->matches->all()[$mid]['phase']==='active');
+                self::ok(!$p->teleport(new Position(100,100,100,$w)),'External teleport allowed');self::denied(fn()=> $c->teleportClanHome($p));$c->matches->tick($m['deadline']);self::ok($c->matches->all()[$mid]['phase']==='active');
                 $m=$c->matches->all()[$mid];$blast=new \pocketmine\event\entity\EntityExplodeEvent($p,new Position(5,100,5,$w),[$w->getBlockAt(17,99,1)],100,[]);$blast->call();self::ok($blast->getBlockList()===[],'Arena blast reached outside map');$uuid=$this->players['Bob']->getUniqueId()->toString();$c->db->runtime['matches'][$mid]['players'][$uuid]['alive']=false;$a=$this->ids['a'];$ra=$c->db->clans[$a]['rating'];$c->matches->tick($m['deadline']);$this->drain();self::ok($c->db->clans[$a]['rating']===$ra+40 && $c->matches->all()[$mid]['winner']==='a');$c->matches->finish($mid,'a');self::ok($c->db->clans[$a]['rating']===$ra+40,'Duplicate reward');self::ok($p->getInventory()->getItem(7)->getCustomName()==='Own gear');self::ok($w->getBlockAt(8,100,4)->getTypeId()===B::AIR()->getTypeId());
             });
             $this->test('siege carrier cannot stash own totem and capture ends immediately',function()use($c):void{

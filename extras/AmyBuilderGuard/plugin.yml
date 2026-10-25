@@ -1,6 +1,6 @@
 name: AmyBuilderGuard
 main: AmyX\BuilderGuard\Main
-version: 1.3.2
+version: 1.3.3
 api: 5.0.0
 author: AmyXCraft
 description: WorldEdit + WorldGuard with forms, full-height regions and schematics for PocketMine-MP 5

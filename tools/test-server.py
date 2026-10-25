@@ -14,6 +14,7 @@ shutil.copy2(a.hologram.resolve() if a.hologram else r/'work/input-Hologram.phar
 if a.integrations:
     for name in ['AmyBuilderGuard','AmyxCommandAccess']:shutil.copy2(r/f'build/{name}.phar',plugins/f'{name}.phar')
     data=s/'plugin_data/AmyxCommandAccess';data.mkdir(parents=True);(data/'config.yml').write_text('require-authentication: false\nallowed-commands: [clan, gm]\ngrant-permissions: [amyxclans.command]\n')
+data=s/'plugin_data/AmyXClans';data.mkdir(parents=True,exist_ok=True);(data/'config.yml').write_text('max-channels: 3\n')
 (s/'server.properties').write_text(f'server-ip=127.0.0.1\nserver-port={a.port}\nserver-portv6={a.port+1}\nenable-query=off\nlevel-type=FLAT\n')
 env=os.environ.copy();env['AMYXCLANS_TESTS']='1'
 with (s/'test.log').open('w') as log:

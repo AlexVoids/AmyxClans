@@ -42,6 +42,10 @@ final class Main extends PluginBase implements Listener{
         $defaults=$stream===null?[]:yaml_parse(stream_get_contents($stream));
         if(is_resource($stream))fclose($stream);
         foreach((array)$defaults as $key=>$value) if(!$this->getConfig()->exists($key)) $this->getConfig()->set($key,$value);
+        if(!(bool)$this->getConfig()->get('channels-limit-v201-migrated',false)){
+            $this->getConfig()->set('max-channels',5);
+            $this->getConfig()->set('channels-limit-v201-migrated',true);
+        }
         $this->getConfig()->save();
         foreach(['texts.yml','arenas.yml','messages.yml','interface.yml'] as $file) if(!is_file($this->getDataFolder().$file)) $this->saveResource($file);
         $texts=new Config($this->getDataFolder().'texts.yml',Config::YAML);
@@ -107,9 +111,10 @@ final class Main extends PluginBase implements Listener{
     public function routeClanCommand(\pocketmine\event\server\CommandEvent $event) : void{
         $sender=$event->getSender();if(!$sender instanceof Player)return;
         $label=strtolower(explode(' ',trim(ltrim($event->getCommand(),'/')))[0]);
-        if(!in_array($label,['clan','amyxclans:clan'],true))return;
-        $event->cancel();$command=$this->getCommand('clan');
-        if($command!==null && $command->testPermission($sender))$this->onCommand($sender,$command,'clan',[]);
+        $name=match($label){'clan','amyxclans:clan'=>'clan','clanhome','amyxclans:clanhome'=>'clanhome',default=>null};
+        if($name===null)return;
+        $event->cancel();$command=$this->getCommand($name);
+        if($command!==null && $command->testPermission($sender))$this->onCommand($sender,$command,$name,[]);
     }
     public function onCommand(CommandSender $sender,Command $command,string $label,array $args) : bool{
         try{
@@ -137,9 +142,20 @@ final class Main extends PluginBase implements Listener{
             }
             if(!$sender instanceof Player){$sender->sendMessage('Команда доступна в игре.');return true;}
             if(!$this->authenticated($sender)) throw new \DomainException('Сначала войдите в аккаунт.');
+            if($command->getName()==='clanhome'){$this->teleportClanHome($sender);return true;}
             $this->menus->main($sender);
         }catch(\DomainException $e){$sender->sendMessage($this->translateText('§5'.$e->getMessage()));}catch(\Throwable $e){$this->getLogger()->logException($e);$sender->sendMessage('§5Операция приостановлена из-за ошибки. Проверьте консоль.');}
         return true;
+    }
+    public function teleportClanHome(Player $player) : void{
+        $id=$this->clan->require($player);
+        if($this->matches->playerMatch($player)!==null)throw new \DomainException('Нельзя покинуть битву телепортом.');
+        $home=$this->db->clans[$id]['home']??null;
+        if($home===null)throw new \DomainException('В вашем клане отсутствует клановая точка.');
+        $destination=$this->arenas->pos($home);
+        if($this->matches->at($destination)!==null)throw new \DomainException('Клановая точка временно недоступна: здесь проходит битва.');
+        $this->matches->teleport($player,$home);
+        $this->message($player,'Вы телепортированы на клановую точку.');
     }
     public function getClanIdByPlayer(string $name) : ?string{return $this->clan->id($name);}
     public function getRawClanNameByPlayer(string $name) : ?string{$id=$this->clan->id($name);return $id===null?null:$this->clans[$id]['name'].'§r';}
@@ -159,7 +175,7 @@ final class Main extends PluginBase implements Listener{
         $b=['world'=>$world,'minX'=>$minX,'minZ'=>$minZ,'maxX'=>$maxX,'maxZ'=>$maxZ];
         foreach($this->db->clans as $c)foreach($c['regions'] as $r)if(\AmyXClans\service\Rules::overlaps($b,$r))return true;return false;
     }
-    public function canBuildAt(Player $player,Position $position) : bool{return $this->regions->canAccess($player,$position) && $this->matches->canBuild($player,$position);}
+    public function canBuildAt(Player $player,Position $position,string $action='build') : bool{return $this->regions->canAccess($player,$position,$action) && $this->matches->canBuild($player,$position);}
     public function findClanId(string $name) : ?string{
         if(isset($this->clans[$name])) return $name;
         foreach($this->clans as $id=>$c) if(mb_strtolower(preg_replace('/§./u','',$c['name']))===mb_strtolower(preg_replace('/§./u','',$name))) return (string)$id;

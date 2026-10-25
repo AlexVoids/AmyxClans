@@ -7,22 +7,37 @@ use pocketmine\player\Player;
 use pocketmine\world\Position;
 
 final class RegionService{
+    public const ACTIONS=[
+        'break'=>'Разрушать блоки',
+        'place'=>'Устанавливать блоки',
+        'containers'=>'Открывать сундуки и другие контейнеры',
+        'interact'=>'Использовать двери, кнопки и другие блоки',
+        'entities'=>'Взаимодействовать с сущностями'
+    ];
+    /** v2.0 boolean entries retain exactly the same access after upgrade. Missing criteria deny access. */
+    public static function accessSettings(mixed $value) : array{
+        $result=[];foreach(self::ACTIONS as $action=>$_)$result[$action]=is_array($value)?(($value[$action]??false)===true):($value===true);
+        return $result;
+    }
     public function __construct(private Main $p){}
     public function at(Position $pos) : ?array{
         if(!$this->p->cfg('features.regions',true)) return null;
         foreach($this->p->db->clans as $id=>$c) foreach($c['regions'] as $rid=>$r){
-            if(Rules::contains($r,$pos->getWorld()->getFolderName(),$pos->x,$pos->z)) return ['clan'=>$id,'id'=>$rid,'region'=>$r];
+            if(Rules::contains($r,$pos->getWorld()->getFolderName(),$pos->x,$pos->z)) return ['clan'=>(string)$id,'id'=>(string)$rid,'region'=>$r];
         }
         return null;
     }
-    public function canAccess(Player $player,Position $pos) : bool{
+    public function canAccess(Player $player,Position $pos,string $action='build') : bool{
+        if($action!=='build' && !isset(self::ACTIONS[$action]))return false;
         $at=$this->at($pos);if($at===null) return true;
         $mid=$this->p->matches->playerMatch($player,true);
         if($mid!==null){$m=$this->p->matches->all()[$mid];if($m['phase']==='active' && ($m['arena']['region']['clan']??null)===$at['clan'] && ($m['arena']['region']['id']??null)===$at['id'] && $this->p->matches->at($pos)===$mid)return true;}
         if($this->p->cfg('regions.op-bypass',true) && $this->p->isOperator($player)) return true;
         $role=$this->p->clan->role($at['clan'],$player->getName()); if($role===null) return false;
         $id=$this->p->getClanRoleIdByPlayer($player->getName());
-        return $role['priority']===10 || (bool)($at['region']['roles'][$id]??false);
+        if($role['priority']===10)return true;
+        $settings=self::accessSettings($at['region']['roles'][$id]??false);
+        return $action==='build'?($settings['break'] && $settings['place']):$settings[$action];
     }
     public function limits(string $id) : array{
         $level=$this->p->db->clans[$id]['level'];
@@ -37,7 +52,7 @@ final class RegionService{
         foreach(['minX','minZ'] as $k) if($r[$k]<$border[$k]) throw new \DomainException('Регион выходит за границы мира.');
         foreach(['maxX','maxZ'] as $k) if($r[$k]>$border[$k]) throw new \DomainException('Регион выходит за границы мира.');
         foreach($this->p->db->clans as $id=>$c) foreach($c['regions'] as $otherId=>$other){
-            if($clan===$id && $rid===$otherId) continue;
+            if($clan===(string)$id && $rid===(string)$otherId) continue;
             if(Rules::overlaps($r,$other)) throw new \DomainException('Территория пересекается с регионом клана §5'.$c['name']);
         }
         foreach($this->p->arenas->all() as $a) if(isset($a['bounds']) && Rules::overlaps($r,$a['bounds'])) throw new \DomainException('Здесь находится арена.');
@@ -53,7 +68,7 @@ final class RegionService{
         [$max,$size]=$this->limits($id);if(count($c['regions']) >= $max) throw new \DomainException('Достигнут лимит регионов уровня '.$c['level']);
         foreach($c['regions'] as $r) if(mb_strtolower($r['name'])===mb_strtolower($name)) throw new \DomainException('Название региона занято.');
         $pos=$actor->getPosition(); $x=(int)floor($pos->x);$z=(int)floor($pos->z);
-        $r=['name'=>$name,'world'=>$pos->getWorld()->getFolderName(),'centerX'=>$x,'centerZ'=>$z,'baseSize'=>$size,'bonus'=>0,'roles'=>array_fill_keys(array_keys($c['roles']),true)]+Rules::bounds($x,$z,$size);
+        $r=['name'=>$name,'world'=>$pos->getWorld()->getFolderName(),'centerX'=>$x,'centerZ'=>$z,'baseSize'=>$size,'bonus'=>0,'roles'=>array_fill_keys(array_keys($c['roles']),self::accessSettings(true))]+Rules::bounds($x,$z,$size);
         $this->validate($r);
         $c['regions'][bin2hex(random_bytes(6))]=$r;
         $this->p->clan->log($id,$actor->getName(),'создал регион §5'.$name.' §f'.$size.'×'.$size);$this->p->db->save();
@@ -79,10 +94,18 @@ final class RegionService{
         $new=array_replace($r,['baseSize'=>$size],Rules::bounds($r['centerX'],$r['centerZ'],$size+$r['bonus']));$this->validate($new,$id,$rid);
         $this->p->db->clans[$id]['regions'][$rid]=$new;$this->p->clan->log($id,$actor->getName(),'применил размер уровня к региону §5'.$r['name']);$this->p->db->save();
     }
+    public function setRoleAccess(Player $actor,string $rid,string $roleId,array $access) : void{
+        $id=$this->p->clan->require($actor,'regions');$this->p->clan->idle($id);$c=&$this->p->db->clans[$id];
+        if(!isset($c['regions'][$rid],$c['roles'][$roleId]))throw new \DomainException('Регион или роль удалены.');
+        if($roleId==='leader')throw new \DomainException('Права лидера в регионе изменить нельзя.');
+        foreach(self::ACTIONS as $action=>$_)if(!isset($access[$action]) || !is_bool($access[$action]))throw new \DomainException('Некорректные настройки доступа.');
+        $c['regions'][$rid]['roles'][$roleId]=self::accessSettings($access);
+        $this->p->clan->log($id,$actor->getName(),'изменил права роли §5'.$c['roles'][$roleId]['name'].' §fв регионе §5'.$c['regions'][$rid]['name']);$this->p->db->save();
+    }
     public function acl(Player $actor,string $rid,array $roles) : void{
         $id=$this->p->clan->require($actor,'regions');$this->p->clan->idle($id);$c=&$this->p->db->clans[$id];
         if(!isset($c['regions'][$rid])) throw new \DomainException('Регион удалён.');
-        $acl=[];foreach($c['roles'] as $roleId=>$r) $acl[$roleId]=$roleId==='leader' || in_array($roleId,$roles,true);
+        $acl=[];foreach($c['roles'] as $roleId=>$r) $acl[$roleId]=self::accessSettings($roleId==='leader' || in_array($roleId,$roles,true));
         $c['regions'][$rid]['roles']=$acl;$this->p->clan->log($id,$actor->getName(),'изменил доступ к региону §5'.$c['regions'][$rid]['name']);$this->p->db->save();
     }
 }

@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
 """Package only source/config/docs/tools and the exact tested PHAR files."""
 from pathlib import Path
-import hashlib,zipfile
+import hashlib,zipfile,re
 r=Path(__file__).resolve().parent.parent
+version=re.search(r'^version: (.+)$',(r/'plugin.yml').read_text(),re.M)[1].strip()
 out=r/'release';out.mkdir(exist_ok=True)
+for pattern in ['AmyxClans-v*-source.zip','AmyxClans-v*-install.zip']:
+    for old in out.glob(pattern):old.unlink()
 for name in ['AmyxClans','AmyxEconomy','ChatPerms','AmyBuilderGuard','AmyxCommandAccess','FormAPI']:
     data=(r/f'build/{name}.phar').read_bytes();(out/f'{name}.phar').write_bytes(data)
-source=out/'AmyxClans-v2.0.0-source.zip'
+source=out/f'AmyxClans-v{version}-source.zip'
 files=[]
 for directory in ['src','resources','extras','docs','tools','tests','.github']:
     files.extend(p for p in (r/directory).rglob('*') if p.is_file() and '__pycache__' not in p.parts)
 files.extend(r/f for f in ['plugin.yml','README.md','LICENSE.txt','THIRD_PARTY.md','.gitignore'])
 with zipfile.ZipFile(source,'w',zipfile.ZIP_DEFLATED) as z:
     for p in sorted(files):z.write(p,'AmyxClans/'+str(p.relative_to(r)))
-with zipfile.ZipFile(out/'AmyxClans-v2.0.0-install.zip','w',zipfile.ZIP_DEFLATED) as z:
+with zipfile.ZipFile(out/f'AmyxClans-v{version}-install.zip','w',zipfile.ZIP_DEFLATED) as z:
     for name in ['AmyxClans','AmyxEconomy','ChatPerms','FormAPI']:z.write(out/f'{name}.phar',f'plugins/{name}.phar')
     for name in ['AmyBuilderGuard','AmyxCommandAccess']:z.write(out/f'{name}.phar',f'optional/{name}.phar')
     for name in ['README.md','THIRD_PARTY.md','LICENSE.txt']:z.write(r/name,name)

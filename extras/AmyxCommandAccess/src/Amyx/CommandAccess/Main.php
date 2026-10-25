@@ -31,6 +31,13 @@ final class Main extends PluginBase implements Listener{
             $this->getConfig()->set('allowed-commands',$allowed);$this->getConfig()->set('grant-permissions',$grants);
             $this->getConfig()->set('clans-v2-migrated',true);$this->getConfig()->save();
         }
+        if(!(bool)$this->getConfig()->get('clanhome-v201-migrated',false)){
+            $allowed=(array)$this->getConfig()->get('allowed-commands',[]);$grants=(array)$this->getConfig()->get('grant-permissions',[]);
+            if(!in_array('clanhome',$allowed,true))$allowed[]='clanhome';
+            if(!in_array('amyxclans.command.home',$grants,true))$grants[]='amyxclans.command.home';
+            $this->getConfig()->set('allowed-commands',$allowed);$this->getConfig()->set('grant-permissions',$grants);
+            $this->getConfig()->set('clanhome-v201-migrated',true);$this->getConfig()->save();
+        }
         $this->policy = new Policy((array)$this->getConfig()->get('allowed-commands', []));
         $this->players = new \WeakMap();
         $this->worldEditLimit = max(1, (int)$this->getConfig()->get('worldedit-max-blocks', 15000));
@@ -74,7 +81,7 @@ final class Main extends PluginBase implements Listener{
         }
         $provider = match($label){
             'balance', 'pay' => 'AmyxEconomy',
-            'clan' => 'AmyXClans',
+            'clan', 'clanhome' => 'AmyXClans',
             'spawn' => 'AmyxSpawn',
             'bank' => 'AmyxMarkets',
             'changepassword', 'security' => 'SimpleAuth',

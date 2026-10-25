@@ -8,6 +8,7 @@ require-authentication: true
 # //wand и другие варианты // WorldEdit преобразуются в /wand и т. п.
 allowed-commands:
   - clan
+  - clanhome
   - register
   - login
   - changepassword
@@ -61,6 +62,7 @@ worldedit-max-blocks: 15000
 # Не выдавайте обычным игрокам amyxcommand.command.* или административные права.
 grant-permissions:
   - amyxclans.command
+  - amyxclans.command.home
   - amyxcommandaccess.auth
   - simpleauth.changepassword
   - simpleauth.security

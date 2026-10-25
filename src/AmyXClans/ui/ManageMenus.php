@@ -69,7 +69,7 @@ trait ManageMenus{
     }
     private function home(Player $p) : void{
         $id=$this->p->clan->require($p);$home=$this->p->db->clans[$id]['home']??null;$buttons=[];
-        if($home!==null)$buttons[]=['Телепортироваться',function()use($p,$id,$home):void{$this->p->clan->require($p,null,$id);if($this->p->matches->playerMatch($p)!==null)throw new \DomainException('Нельзя покинуть битву телепортом.');$this->p->matches->teleport($p,$this->p->db->clans[$id]['home']);}];
+        if($home!==null)$buttons[]=['Телепортироваться',fn()=> $this->p->teleportClanHome($p)];
         $r=$this->p->clan->role($id,$p->getName());
         if($r['priority']>=9 && $this->p->clan->has($id,$p->getName(),'homes')){
             $buttons[]=['Установить точку здесь',fn()=> $this->confirm($p,'Клановая точка','Заменить текущую клановую точку вашим местоположением?',function()use($p,$id):void{
@@ -109,7 +109,7 @@ trait ManageMenus{
                 $this->p->clan->require($p,'channels',$id);$c=&$this->p->db->clans[$id];$name=trim($d[0]);
                 if(!preg_match('/^[A-Za-zА-Яа-яЁё]{2,16}$/u',$name) || mb_strtolower($name)==='c')throw new \DomainException('Название канала: 2–16 букв.');
                 if($d[1]>$this->p->clan->role($id,$p->getName())['priority'])throw new \DomainException('Приоритет выше вашего.');
-                if($channelId===null && count($c['channels'])>=(int)$this->p->cfg('max-channels',3))throw new \DomainException('Достигнут лимит каналов.');
+                if($channelId===null && count($c['channels'])>=(int)$this->p->cfg('max-channels',5))throw new \DomainException('Достигнут лимит каналов.');
                 foreach($c['channels'] as $otherId=>$other)if($otherId!==$channelId && mb_strtolower($other['name'])===mb_strtolower($name))throw new \DomainException('Название занято.');
                 $cid=$channelId??'channel_'.bin2hex(random_bytes(4));if($channelId!==null && !isset($c['channels'][$channelId]))throw new \DomainException('Канал удалён.');
                 $c['channels'][$cid]=['name'=>$name,'priority'=>(int)$d[1]];$this->p->clan->log($id,$p->getName(),'изменил канал §5'.$name);$this->p->db->save();$this->settings($p);
@@ -118,7 +118,7 @@ trait ManageMenus{
         ],fn()=> $this->settings($p));
     }
     private function regionList(Player $p) : void{
-        $id=$this->p->clan->require($p);$buttons=[];foreach($this->p->db->clans[$id]['regions'] as $rid=>$r)$buttons[]=['§5'.$r['name'].'§f · '.$r['world'],fn()=> $this->region($p,$rid)];
+        $id=$this->p->clan->require($p);$buttons=[];foreach($this->p->db->clans[$id]['regions'] as $rid=>$r)$buttons[]=['§5'.$r['name'].'§f · '.$r['world'],fn()=> $this->region($p,(string)$rid)];
         if($this->p->clan->has($id,$p->getName(),'regions'))$buttons[]=['Создать здесь',fn()=> $this->custom($p,'Новый регион',[['input','Название региона']],function($d)use($p):void{$this->p->regions->create($p,trim($d[0]));$this->regionList($p);},fn()=> $this->regionList($p))];
         [$count,$size]=$this->p->regions->limits($id);$this->menu($p,'Регионы','Лимит: §5'.$count.'§f\nРазмер новых регионов: §5'.$size.'×'.$size.'§f\nВысота: весь мир.',$buttons,fn()=> $this->main($p));
     }
@@ -128,12 +128,32 @@ trait ManageMenus{
             [, $base]=$this->p->regions->limits($id);
             if($base>$r['baseSize'])$buttons[]=['Применить размер уровня · §5'.$base.'×'.$base,fn()=> $this->confirm($p,'Размер региона','Применить размер текущего уровня? Бонус сохранится. Соседние территории будут проверены.',function()use($p,$rid):void{$this->p->regions->applyLevelSize($p,$rid);$this->region($p,$rid);},fn()=> $this->region($p,$rid))];
             if($r['bonus']<10){$next=$r['bonus']+2;$cost=(int)$this->p->cfg('region-expansion-prices.'.$next,10000*$next);$buttons[]=['Расширить до +'.$next.' · §5'.$cost,fn()=> $this->confirm($p,'Расширение','Купить суммарное расширение +'.$next.' за §5'.$cost.' §fмонет?',function()use($p,$rid,$next,$cost):void{$this->p->regions->expand($p,$rid,$next,$cost);$this->region($p,$rid);},fn()=> $this->region($p,$rid))];}
-            $buttons[]=['Права ролей',function()use($p,$id,$rid,$r):void{
-                $roles=$this->p->db->clans[$id]['roles'];$elements=[];$ids=[];foreach($roles as $roleId=>$role)if($roleId!=='leader'){$ids[]=$roleId;$elements[]=['toggle',$role['name'],(bool)($r['roles'][$roleId]??false)];}
-                $this->custom($p,'Доступ к региону',$elements,function($d)use($p,$rid,$ids):void{$allowed=[];foreach($ids as $i=>$roleId)if($d[$i])$allowed[]=$roleId;$this->p->regions->acl($p,$rid,$allowed);$this->region($p,$rid);},fn()=> $this->region($p,$rid));
-            }];
+            $buttons[]=['Права ролей',fn()=> $this->regionRoles($p,$rid)];
             $buttons[]=['Удалить регион',fn()=> $this->confirm($p,'Удаление региона','Снять защиту региона §5'.$r['name'].'§f?',function()use($p,$rid):void{$this->p->regions->delete($p,$rid);$this->regionList($p);},fn()=> $this->region($p,$rid))];
         }
         $size=$r['baseSize']+$r['bonus'];$this->menu($p,'Регион '.$r['name'],'Размер: §5'.$size.'×'.$size.'§f\nX: §5'.$r['minX'].'…'.$r['maxX'].'§f\nZ: §5'.$r['minZ'].'…'.$r['maxZ'].'§f\nСуммарный бонус: §5+'.$r['bonus'],$buttons,fn()=> $this->regionList($p));
     }
+    private function regionRoles(Player $p,string $rid) : void{
+        $id=$this->p->clan->require($p,'regions');$r=$this->p->db->clans[$id]['regions'][$rid]??null;
+        if($r===null)throw new \DomainException('Регион удалён.');
+        $buttons=[];
+        foreach($this->p->db->clans[$id]['roles'] as $roleId=>$role){
+            $buttons[]=['§5'.$role['name'],fn()=> $this->regionRole($p,$rid,(string)$roleId)];
+        }
+        $this->menu($p,'Права региона '.$r['name'],'Для каждой роли отдельно настройте действия в регионе.',$buttons,fn()=> $this->region($p,$rid));
+    }
+    private function regionRole(Player $p,string $rid,string $roleId) : void{
+        $id=$this->p->clan->require($p,'regions');$c=$this->p->db->clans[$id];$r=$c['regions'][$rid]??null;$role=$c['roles'][$roleId]??null;
+        if($r===null || $role===null)throw new \DomainException('Регион или роль удалены.');
+        if($roleId==='leader'){
+            $this->menu($p,'Лидер · только чтение','Лидеру доступны все действия в своём регионе.',[],fn()=> $this->regionRoles($p,$rid));return;
+        }
+        $access=\AmyXClans\region\RegionService::accessSettings($r['roles'][$roleId]??false);$elements=[];
+        foreach(\AmyXClans\region\RegionService::ACTIONS as $action=>$label)$elements[]=['toggle',$label,$access[$action]];
+        $this->custom($p,'Регион · '.$role['name'],$elements,function($data)use($p,$rid,$roleId):void{
+            $access=[];foreach(array_keys(\AmyXClans\region\RegionService::ACTIONS) as $i=>$action)$access[$action]=$data[$i];
+            $this->p->regions->setRoleAccess($p,$rid,$roleId,$access);$this->regionRoles($p,$rid);
+        },fn()=> $this->regionRoles($p,$rid));
+    }
+
 }
